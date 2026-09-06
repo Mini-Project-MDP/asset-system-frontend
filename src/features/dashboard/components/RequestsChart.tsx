@@ -1,4 +1,3 @@
-import React from 'react'
 import type { MonthlyRequestData } from '../types'
 
 interface RequestsChartProps {

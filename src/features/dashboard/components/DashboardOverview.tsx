@@ -1,4 +1,3 @@
-import React from 'react'
 import { useGetDashboardOverview } from '../hooks/useDashboard'
 import StatCard from './StatCard'
 import RequestsChart from './RequestsChart'

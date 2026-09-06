@@ -1,4 +1,3 @@
-import React from 'react'
 import type { StatCardData } from '../types'
 
 interface StatCardProps {

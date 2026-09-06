@@ -56,7 +56,7 @@ export const createRequestSchema = z.object({
   reqType: z.string().optional(),
   requesterRole: z.string().min(1, 'Requester Role wajib dipilih.'),
   requesterName: z.string().min(1, 'Nama requester wajib diisi.'),
-  qty: z.coerce.number().min(1, 'Quantity wajib diisi dengan angka.'),
+  qty: z.number().min(1, 'Quantity wajib diisi dengan angka.'),
   priority: z.enum(['normal', 'high', 'urgent']),
 }).refine(
   (data) => {

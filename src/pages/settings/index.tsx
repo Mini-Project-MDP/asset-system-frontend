@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import SettingsOutlets from '@/features/settings/components/SettingsOutlets'
 import SettingsDistributors from '@/features/settings/components/SettingsDistributors'

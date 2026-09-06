@@ -1,6 +1,6 @@
 import React from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { Button, Spin, Tag, message, Modal } from 'antd'
+import { Button, Spin, message, Modal } from 'antd'
 import { ArrowLeftOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import { useGetApprovalDetail, useActOnApproval } from '../hooks/useApprovals'
 import { ROLE_LABELS } from '@/features/requests/services/requestService'

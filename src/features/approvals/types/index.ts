@@ -1,4 +1,4 @@
-import type { RequestDetailItem, CategoryType } from '@/features/requests/types'
+import type { RequestDetailItem } from '@/features/requests/types'
 
 export type ApprovalTab = 'pending' | 'history'
 

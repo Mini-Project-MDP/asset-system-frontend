@@ -1,6 +1,6 @@
 import { httpClient } from '@/shared/services/httpClient'
 import type { RequestDetailItem } from '@/features/requests/types'
-import { requestService, ROLE_LABELS, FULFILL_STAGES } from '@/features/requests/services/requestService'
+import { requestService, FULFILL_STAGES } from '@/features/requests/services/requestService'
 import type { ApprovalFilter, ApprovalActionPayload, ApprovalsOverview } from '../types'
 
 export const approvalService = {
