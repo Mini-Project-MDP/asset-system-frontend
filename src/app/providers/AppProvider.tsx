@@ -13,8 +13,20 @@ export function AppProvider({ children }: AppProviderProps) {
       <ConfigProvider
         theme={{
           token: {
-            colorPrimary: '#1677ff',
-            borderRadius: 6,
+            colorPrimary: '#be123c',
+            colorPrimaryHover: '#9f1239',
+            colorPrimaryActive: '#881337',
+            borderRadius: 10,
+            fontFamily: "'IBM Plex Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+          },
+          components: {
+            Button: {
+              fontWeight: 600,
+              borderRadius: 10,
+            },
+            Modal: {
+              borderRadiusLG: 18,
+            },
           },
         }}
       >
