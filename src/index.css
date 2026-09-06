@@ -129,7 +129,7 @@ a {
 }
 
 .brand, .top, .nav, .card, .stat, .rolesw > button, .rolesw .menu, .iconbtn,
-.btn-secondary, .btn-ghost, .field .ctrl, .top .search input, .fbar .fsearch input,
+.btn-secondary, .btn-ghost, .field .ctrl, .top .search .ant-input-affix-wrapper, .fbar .fsearch input,
 .fbar select, .seg-ctrl {
   -webkit-backdrop-filter: var(--blur);
   backdrop-filter: var(--blur);
@@ -227,30 +227,33 @@ a {
   margin-left: auto;
   position: relative;
 }
-.top .search input {
-  width: 220px;
+.top .search .ant-input-affix-wrapper {
+  width: 240px;
   height: 34px;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: #f8fafc;
-  padding: 0 12px 0 34px;
+  padding: 0 10px;
   font-size: 13px;
   color: var(--ink);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.top .search input::placeholder {
-  color: var(--faint);
-}
-.top .search input:focus {
+.top .search .ant-input-affix-wrapper:focus,
+.top .search .ant-input-affix-wrapper:focus-within {
   outline: none;
   border-color: var(--brand);
   box-shadow: 0 0 0 3px var(--brand-ring);
   background: #ffffff;
 }
-.top .search svg {
-  position: absolute;
-  left: 11px;
-  top: 10px;
+.top .search input.ant-input {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 4px !important;
+  height: 100% !important;
+  outline: none !important;
+}
+.top .search input::placeholder {
   color: var(--faint);
 }
 

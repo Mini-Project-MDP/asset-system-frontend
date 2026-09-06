@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router'
-import { Input } from 'antd'
-import { SearchOutlined } from '@ant-design/icons'
+import { Input, Dropdown, Tag } from 'antd'
+import type { MenuProps } from 'antd'
+import { SearchOutlined, LogoutOutlined, UserOutlined, CrownOutlined, SettingOutlined } from '@ant-design/icons'
+import { useAuth } from '@/shared/context/AuthContext'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -10,6 +12,7 @@ interface MainLayoutProps {
 export default function MainLayout({ children }: MainLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { user, logout } = useAuth()
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'light')
@@ -88,6 +91,46 @@ export default function MainLayout({ children }: MainLayoutProps) {
     }
   }
 
+  const primaryRole = user?.roles?.[0]?.name || (user?.is_master ? 'Master Admin' : 'User')
+  const userInitials = user?.name
+    ? user.name
+        .split(' ')
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+    : 'US'
+
+  const userMenuItems: MenuProps['items'] = [
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: (
+        <div>
+          <div className="font-semibold text-slate-800">{user?.name}</div>
+          <div className="text-xs text-slate-500">{user?.email}</div>
+        </div>
+      ),
+    },
+    { type: 'divider' },
+    {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: 'Account & Settings',
+      onClick: () => navigate('/settings'),
+    },
+    { type: 'divider' },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined className="text-red-500" />,
+      label: <span className="text-red-600 font-medium">Sign Out</span>,
+      onClick: () => {
+        logout()
+        navigate('/login')
+      },
+    },
+  ]
+
   return (
     <div className="app">
       {/* Brand Corner */}
@@ -105,23 +148,32 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </div>
         <div className="search">
           <Input
-            placeholder="Cari REQ-ID, outlet, barcode…"
+            placeholder="Search REQ-ID, outlet, barcode…"
             prefix={<SearchOutlined style={{ color: 'var(--faint)' }} />}
             allowClear
           />
         </div>
 
         <div className="rolesw">
-          <button>
-            <span className="avatar">AD</span>
-            <span className="rl">
-              <b>Admin</b>
-              <span>Full access</span>
-            </span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="2">
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
+          <Dropdown menu={{ items: userMenuItems }} trigger={['click']} placement="bottomRight">
+            <button className="flex items-center gap-2 border-none bg-transparent cursor-pointer">
+              <span className="avatar bg-blue-600 text-white font-bold">{userInitials}</span>
+              <span className="rl text-left">
+                <b className="flex items-center gap-1">
+                  {user?.name || 'User'}
+                  {user?.is_master && (
+                    <Tag color="gold" className="m-0 text-[10px] px-1 py-0 border-none">
+                      <CrownOutlined /> MASTER
+                    </Tag>
+                  )}
+                </b>
+                <span>{primaryRole}</span>
+              </span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="2">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+          </Dropdown>
         </div>
       </header>
 
@@ -148,7 +200,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         })}
         <div className="foot">
           Signed in as<br />
-          <span className="mono">Admin</span><br />
+          <span className="mono font-semibold">{user?.email || 'User'}</span><br />
           {new Date().toLocaleDateString('en-GB', {
             weekday: 'long',
             day: 'numeric',

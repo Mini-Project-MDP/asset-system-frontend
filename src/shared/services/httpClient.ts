@@ -25,7 +25,13 @@ httpClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Handle Unauthorized redirection / token refresh if needed
+      const isLoginRequest = error.config?.url?.includes('/auth/login')
+      if (!isLoginRequest) {
+        localStorage.removeItem('access_token')
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
+      }
     }
     return Promise.reject(error)
   }

@@ -9,6 +9,7 @@ export type Path =
   | `/approvals/:id`
   | `/fulfillment`
   | `/fulfillment/:id`
+  | `/login`
   | `/requests`
   | `/requests/:id`
   | `/requests/new`
