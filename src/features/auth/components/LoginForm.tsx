@@ -20,11 +20,15 @@ export const LoginForm: React.FC = () => {
     setErrorMsg(null)
     try {
       const response = await httpClient.post<LoginResponse>('/api/v1/auth/login', values)
-      const { access_token, user } = response.data
+      const data = (response.data as any)?.data || response.data
+      const { access_token, user } = data || {}
+      if (!access_token) {
+        throw new Error('Invalid authentication response from server')
+      }
       login(access_token, user)
       navigate('/')
     } catch (err: any) {
-      const msg = err.response?.data?.error || 'Authentication failed. Please check your credentials.'
+      const msg = err.response?.data?.error || err.message || 'Authentication failed. Please check your credentials.'
       setErrorMsg(msg)
     } finally {
       setLoading(false)

@@ -12,7 +12,7 @@ export const httpClient = axios.create({
 httpClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token')
-    if (token && config.headers) {
+    if (token && token !== 'undefined' && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
     }
     return config
@@ -22,7 +22,18 @@ httpClient.interceptors.request.use(
 
 // Response Interceptor (Global Response & Error handling)
 httpClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Standard backend envelope unwrap: { success: true, message: "...", data: ... }
+    if (
+      response.data &&
+      typeof response.data === 'object' &&
+      'success' in response.data &&
+      'data' in response.data
+    ) {
+      response.data = response.data.data
+    }
+    return response
+  },
   (error) => {
     if (error.response?.status === 401) {
       const isLoginRequest = error.config?.url?.includes('/auth/login')

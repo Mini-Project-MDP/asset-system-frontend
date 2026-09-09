@@ -17,13 +17,24 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('access_token'))
+  const [token, setToken] = useState<string | null>(() => {
+    const saved = localStorage.getItem('access_token')
+    if (saved === 'undefined') {
+      localStorage.removeItem('access_token')
+      return null
+    }
+    return saved
+  })
   const [user, setUser] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
 
   const fetchCurrentUser = async () => {
     const currentToken = localStorage.getItem('access_token')
-    if (!currentToken) {
+    if (!currentToken || currentToken === 'undefined') {
+      if (currentToken === 'undefined') {
+        localStorage.removeItem('access_token')
+      }
+      setToken(null)
       setUser(null)
       setIsLoading(false)
       return
@@ -31,7 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const response = await httpClient.get<UserProfile>('/api/v1/me')
-      setUser(response.data)
+      const userData = (response.data as any)?.data || response.data
+      setUser(userData)
     } catch (err) {
       console.error('Failed to fetch user profile:', err)
       localStorage.removeItem('access_token')
@@ -47,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [token])
 
   const login = (newToken: string, newUser: UserProfile) => {
+    if (!newToken || newToken === 'undefined') return
     localStorage.setItem('access_token', newToken)
     setToken(newToken)
     setUser(newUser)
