@@ -5,7 +5,10 @@ import { ProtectedRoute } from '@/shared/components/ProtectedRoute'
 export default function App() {
   const location = useLocation()
 
-  if (location.pathname === '/login') {
+  const isPublicRoute =
+    location.pathname === '/login' || location.pathname.startsWith('/sso/callback')
+
+  if (isPublicRoute) {
     return <Outlet />
   }
 

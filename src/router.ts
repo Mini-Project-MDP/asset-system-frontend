@@ -14,6 +14,7 @@ export type Path =
   | `/requests/:id`
   | `/requests/new`
   | `/settings`
+  | `/sso/callback`
 
 export type Params = {
   '/approvals/:id': { id: string }

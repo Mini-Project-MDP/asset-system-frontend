@@ -35,6 +35,19 @@ export const LoginForm: React.FC = () => {
     }
   }
 
+  const handleSSOLoginRedirect = () => {
+    const ssoServerUrl = import.meta.env.VITE_SSO_PORTAL_URL || 'http://localhost:5174'
+    const clientId = 'app_asset_mgmt_123'
+    const redirectUri = 'http://localhost:5173/sso/callback'
+    const state = 'state_asset_' + Math.random().toString(36).substring(7)
+
+    const ssoAuthUrl = `${ssoServerUrl}/sso/login?client_id=${encodeURIComponent(
+      clientId
+    )}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20profile%20email%20roles&state=${state}`
+
+    window.location.href = ssoAuthUrl
+  }
+
   const fillQuickAccount = (email: string) => {
     form.setFieldsValue({
       username_or_email: email,
@@ -70,6 +83,24 @@ export const LoginForm: React.FC = () => {
             className="mb-6 rounded-lg bg-red-950/40 border-red-800 text-red-200"
           />
         )}
+
+        {/* Mayora SSO Login Button */}
+        <div className="mb-6">
+          <Button
+            type="primary"
+            danger
+            block
+            icon={<SafetyCertificateOutlined className="text-lg" />}
+            onClick={handleSSOLoginRedirect}
+            className="h-12 text-base font-bold rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 border-none shadow-lg shadow-red-500/30"
+          >
+            Sign In with Mayora Single Sign-On (SSO)
+          </Button>
+        </div>
+
+        <Divider className="border-slate-700/60 text-slate-400 text-xs my-6">
+          OR LOGIN WITH DIRECT CREDENTIALS
+        </Divider>
 
         <Form
           form={form}
