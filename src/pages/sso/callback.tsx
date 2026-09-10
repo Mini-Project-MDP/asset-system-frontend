@@ -106,13 +106,13 @@ export const SSOCallbackPage: React.FC = () => {
   }, [code, login, navigate])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 gap-4">
       <Card className="w-full max-w-md bg-slate-800 border-slate-700 text-white rounded-2xl p-6 text-center shadow-2xl">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 mb-4">
           <SafetyCertificateOutlined className="text-3xl" />
         </div>
 
-        <h2 className="text-xl font-bold text-white mb-2">Mayora SSO Authentication</h2>
+        <h2 className="text-xl font-bold mb-2">Mayora SSO Authentication</h2>
 
         {loading ? (
           <div className="py-6 space-y-4">
