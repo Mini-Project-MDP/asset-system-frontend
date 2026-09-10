@@ -8,7 +8,7 @@ export const LoginForm: React.FC = () => {
   const handleSSOLoginRedirect = () => {
     const ssoServerUrl = import.meta.env.VITE_SSO_PORTAL_URL || 'http://localhost:5174'
     const clientId = 'app_asset_mgmt_123'
-    const redirectUri = `${window.location.origin}/sso/callback`
+    const redirectUri = `${import.meta.env.VITE_APP_URL || window.location.origin}/sso/callback`
 
     const ssoAuthUrl = `${ssoServerUrl}/sso/login?client_id=${encodeURIComponent(
       clientId
@@ -27,10 +27,10 @@ export const LoginForm: React.FC = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-lg shadow-blue-500/30 mb-4">
             <SafetyCertificateOutlined className="text-3xl" />
           </div>
-          <Title level={2} className="!text-white !mb-1 font-bold tracking-tight">
+          <Title level={2} className="!text-slate-900 !mb-1 font-bold tracking-tight">
             Mayora Asset System
           </Title>
-          <Text className="text-slate-400 text-sm">
+          <Text className="text-slate-500 text-sm">
             Sign in to access your asset management workspace
           </Text>
         </div>
@@ -46,7 +46,7 @@ export const LoginForm: React.FC = () => {
           Sign In with Mayora Single Sign-On (SSO)
         </Button>
 
-        <p className="text-center text-xs text-slate-600 mt-6">
+        <p className="text-center text-xs text-slate-400 mt-6">
           Mayora Asset Management System · Powered by Mayora SSO
         </p>
       </Card>

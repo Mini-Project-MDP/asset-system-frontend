@@ -34,7 +34,7 @@ export const SSOCallbackPage: React.FC = () => {
 
         // 1. Exchange authorization code for JWT token
         setStatusMsg('Exchanging authorization code with Mayora SSO...')
-        const redirectUri = window.location.origin + '/sso/callback'
+        const redirectUri = `${import.meta.env.VITE_APP_URL || window.location.origin}/sso/callback`
         const tokenRes = await axios.post(`${ssoBackendUrl}/api/v1/sso/token`, {
           grant_type: 'authorization_code',
           code: code,
