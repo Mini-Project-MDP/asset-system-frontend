@@ -1,58 +1,20 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router'
-import { Alert, Button, Form, Input, Card, Typography, Divider, Space, Tag } from 'antd'
-import { UserOutlined, LockOutlined, LoginOutlined, SafetyCertificateOutlined } from '@ant-design/icons'
-import { httpClient } from '@/shared/services/httpClient'
-import { useAuth } from '@/shared/context/AuthContext'
-import type { LoginResponse } from '@/shared/types/auth'
+import React from 'react'
+import { Button, Card, Typography } from 'antd'
+import { SafetyCertificateOutlined } from '@ant-design/icons'
 
 const { Title, Text } = Typography
 
 export const LoginForm: React.FC = () => {
-  const [loading, setLoading] = useState(false)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const { login } = useAuth()
-  const navigate = useNavigate()
-  const [form] = Form.useForm()
-
-  const handleSubmit = async (values: { username_or_email: string; password: string }) => {
-    setLoading(true)
-    setErrorMsg(null)
-    try {
-      const response = await httpClient.post<LoginResponse>('/api/v1/auth/login', values)
-      const data = (response.data as any)?.data || response.data
-      const { access_token, user } = data || {}
-      if (!access_token) {
-        throw new Error('Invalid authentication response from server')
-      }
-      login(access_token, user)
-      navigate('/')
-    } catch (err: any) {
-      const msg = err.response?.data?.error || err.message || 'Authentication failed. Please check your credentials.'
-      setErrorMsg(msg)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleSSOLoginRedirect = () => {
     const ssoServerUrl = import.meta.env.VITE_SSO_PORTAL_URL || 'http://localhost:5174'
     const clientId = 'app_asset_mgmt_123'
-    const redirectUri = 'http://localhost:5173/sso/callback'
-    const state = 'state_asset_' + Math.random().toString(36).substring(7)
+    const redirectUri = `${window.location.origin}/sso/callback`
 
     const ssoAuthUrl = `${ssoServerUrl}/sso/login?client_id=${encodeURIComponent(
       clientId
-    )}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20profile%20email%20roles&state=${state}`
+    )}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20profile%20email%20roles`
 
     window.location.href = ssoAuthUrl
-  }
-
-  const fillQuickAccount = (email: string) => {
-    form.setFieldsValue({
-      username_or_email: email,
-      password: 'Password123!',
-    })
   }
 
   return (
@@ -73,114 +35,20 @@ export const LoginForm: React.FC = () => {
           </Text>
         </div>
 
-        {errorMsg && (
-          <Alert
-            message={errorMsg}
-            type="error"
-            showIcon
-            closable
-            onClose={() => setErrorMsg(null)}
-            className="mb-6 rounded-lg bg-red-950/40 border-red-800 text-red-200"
-          />
-        )}
-
-        {/* Mayora SSO Login Button */}
-        <div className="mb-6">
-          <Button
-            type="primary"
-            danger
-            block
-            icon={<SafetyCertificateOutlined className="text-lg" />}
-            onClick={handleSSOLoginRedirect}
-            className="h-12 text-base font-bold rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 border-none shadow-lg shadow-red-500/30"
-          >
-            Sign In with Mayora Single Sign-On (SSO)
-          </Button>
-        </div>
-
-        <Divider className="border-slate-700/60 text-slate-400 text-xs my-6">
-          OR LOGIN WITH DIRECT CREDENTIALS
-        </Divider>
-
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          initialValues={{ username_or_email: 'master1@mayora.com', password: 'Password123!' }}
-          size="large"
+        <Button
+          type="primary"
+          danger
+          block
+          icon={<SafetyCertificateOutlined className="text-lg" />}
+          onClick={handleSSOLoginRedirect}
+          className="h-12 text-base font-bold rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 border-none shadow-lg shadow-red-500/30"
         >
-          <Form.Item
-            name="username_or_email"
-            rules={[{ required: true, message: 'Please enter your email or employee number' }]}
-          >
-            <Input
-              prefix={<UserOutlined className="text-slate-400" />}
-              placeholder="Email or Employee No."
-              className="bg-slate-900/60 border-slate-700 text-white placeholder-slate-500 rounded-xl hover:border-blue-500 focus:border-blue-500"
-            />
-          </Form.Item>
+          Sign In with Mayora Single Sign-On (SSO)
+        </Button>
 
-          <Form.Item
-            name="password"
-            rules={[{ required: true, message: 'Please enter your password' }]}
-          >
-            <Input.Password
-              prefix={<LockOutlined className="text-slate-400" />}
-              placeholder="Password"
-              className="bg-slate-900/60 border-slate-700 text-white placeholder-slate-500 rounded-xl hover:border-blue-500 focus:border-blue-500"
-            />
-          </Form.Item>
-
-          <Form.Item className="mt-8 mb-4">
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              icon={<LoginOutlined />}
-              block
-              className="h-12 text-base font-semibold rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 border-none shadow-lg shadow-blue-500/25"
-            >
-              Sign In
-            </Button>
-          </Form.Item>
-        </Form>
-
-        <Divider className="border-slate-700/60 text-slate-400 text-xs my-6">
-          DEMO QUICK LOGIN ACCOUNTS
-        </Divider>
-
-        <div className="space-y-2 text-center">
-          <Space wrap size={[4, 8]} style={{ justifyContent: 'center' }}>
-            <Tag
-              color="gold"
-              className="cursor-pointer px-3 py-1 rounded-full border-gold-500/30 hover:opacity-80 transition-opacity"
-              onClick={() => fillQuickAccount('master1@mayora.com')}
-            >
-              👑 Master Admin
-            </Tag>
-            <Tag
-              color="blue"
-              className="cursor-pointer px-3 py-1 rounded-full border-blue-500/30 hover:opacity-80 transition-opacity"
-              onClick={() => fillQuickAccount('manager1@mayora.com')}
-            >
-              💼 Asset Manager
-            </Tag>
-            <Tag
-              color="purple"
-              className="cursor-pointer px-3 py-1 rounded-full border-purple-500/30 hover:opacity-80 transition-opacity"
-              onClick={() => fillQuickAccount('approver1@mayora.com')}
-            >
-              ✅ Approver
-            </Tag>
-            <Tag
-              color="green"
-              className="cursor-pointer px-3 py-1 rounded-full border-green-500/30 hover:opacity-80 transition-opacity"
-              onClick={() => fillQuickAccount('user1@mayora.com')}
-            >
-              👤 Regular User
-            </Tag>
-          </Space>
-        </div>
+        <p className="text-center text-xs text-slate-600 mt-6">
+          Mayora Asset Management System · Powered by Mayora SSO
+        </p>
       </Card>
     </div>
   )
