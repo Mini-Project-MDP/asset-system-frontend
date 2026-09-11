@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useNavigate } from 'react-router'
+import { useNavigate, useLocation } from 'react-router'
 import {
   Form,
   Input,
@@ -19,6 +19,7 @@ import {
   createRequestSchema,
   type CreateRequestFormInput,
   type CategoryType,
+  type RequestDetailItem,
 } from '../types'
 import {
   DISTRIBUTORS,
@@ -35,6 +36,13 @@ const { Title, Paragraph, Text } = Typography
 
 export default function NewRequestForm() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const state = location.state as { prefill?: RequestDetailItem; revisedFromId?: string } | undefined
+  const prefill = state?.prefill
+  const revisedFromId = state?.revisedFromId || prefill?.id
+
+  const isDistributorKnown = prefill?.distributor ? DISTRIBUTORS.includes(prefill.distributor) : true
+
   const { mutateAsync: createRequest, isPending } = useCreateRequest()
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -47,16 +55,17 @@ export default function NewRequestForm() {
   } = useForm<CreateRequestFormInput>({
     resolver: zodResolver(createRequestSchema),
     defaultValues: {
-      category: 'Barcode',
-      distributor: '',
-      distributorManual: '',
-      outlet: '',
-      salesDivision: '',
-      reqType: '',
-      requesterRole: 'SA',
-      requesterName: 'Admin Staff',
-      qty: 5,
-      priority: 'normal',
+      category: (prefill?.type as CategoryType) || 'Barcode',
+      distributor: prefill ? (isDistributorKnown ? prefill.distributor : '__other__') : '',
+      distributorManual: prefill && !isDistributorKnown ? prefill.distributor : '',
+      outlet: prefill?.outlet || '',
+      salesDivision: prefill?.salesDivision || '',
+      reqType: prefill?.reqType || '',
+      requesterRole: prefill?.byRole || 'SA',
+      requesterName: prefill?.by || 'Admin Staff',
+      qty: prefill?.qty || 5,
+      priority: prefill?.pri || 'normal',
+      revisedFromId: revisedFromId || '',
     },
   })
 
@@ -73,7 +82,13 @@ export default function NewRequestForm() {
   }, [selectedCategory, selectedRequesterRole, setValue])
 
   // Available outlets for selected distributor
-  const availableOutlets = DISTRIBUTOR_OUTLETS[selectedDistributor] || []
+  const availableOutlets = useMemo(() => {
+    const base = DISTRIBUTOR_OUTLETS[selectedDistributor] || []
+    if (prefill?.outlet && !base.includes(prefill.outlet)) {
+      return [...base, prefill.outlet]
+    }
+    return base
+  }, [selectedDistributor, prefill?.outlet])
 
   // Compute live approval chain preview
   const liveChain = computeChain(selectedCategory, selectedRequesterRole)
@@ -81,7 +96,10 @@ export default function NewRequestForm() {
   const onSubmit = async (data: CreateRequestFormInput) => {
     try {
       setSubmitError(null)
-      const createdItem = await createRequest(data)
+      const createdItem = await createRequest({
+        ...data,
+        revisedFromId: revisedFromId || data.revisedFromId || undefined,
+      })
       navigate(`/requests/${createdItem.id}`)
     } catch (err: unknown) {
       const errorObj = err as { message?: string }
@@ -95,19 +113,35 @@ export default function NewRequestForm() {
       <div className="flex items-start justify-between">
         <div>
           <Text className="font-mono text-[10.5px] font-semibold uppercase tracking-widest text-rose-700 block mb-1">
-            Requests / New
+            Requests / {revisedFromId ? 'Resubmit' : 'New'}
           </Text>
           <Title level={2} className="!text-slate-900 !m-0 font-extrabold tracking-tight">
-            New request
+            {revisedFromId ? 'Ajukan Ulang (Revisi)' : 'New request'}
           </Title>
           <Paragraph className="text-slate-500 text-sm font-medium !mb-0 mt-1">
-            Isi detail di bawah — rute approval ditampilkan secara real-time sebelum kamu kirim.
+            {revisedFromId
+              ? `Mengajukan ulang sebagai revisi dari ${revisedFromId}. Sesuaikan data dan kirim kembali.`
+              : 'Isi detail di bawah — rute approval ditampilkan secara real-time sebelum kamu kirim.'}
           </Paragraph>
         </div>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/requests')}>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(revisedFromId ? `/requests/${revisedFromId}` : '/requests')}>
           Back
         </Button>
       </div>
+
+      {revisedFromId && (
+        <Alert
+          message={
+            <span>
+              Pengajuan Ulang untuk <strong className="font-mono">{revisedFromId}</strong>
+            </span>
+          }
+          description="Formulir telah diisi otomatis dari data request sebelumnya. Silakan periksa dan ubah data yang perlu diperbaiki sesuai catatan revisi."
+          type="info"
+          showIcon
+          className="rounded-xl border-blue-200 bg-blue-50/60"
+        />
+      )}
 
       {submitError && (
         <Alert
@@ -364,9 +398,9 @@ export default function NewRequestForm() {
                 loading={isPending}
                 className="!font-semibold shadow-md"
               >
-                Kirim Request
+                {revisedFromId ? 'Kirim Pengajuan Ulang' : 'Kirim Request'}
               </Button>
-              <Button size="large" onClick={() => navigate('/requests')}>
+              <Button size="large" onClick={() => navigate(revisedFromId ? `/requests/${revisedFromId}` : '/requests')}>
                 Batal
               </Button>
             </div>

@@ -1,112 +1,59 @@
 import { httpClient } from '@/shared/services/httpClient'
 import type { RequestDetailItem } from '@/features/requests/types'
-import { requestService, FULFILL_STAGES } from '@/features/requests/services/requestService'
 import type { ApprovalFilter, ApprovalActionPayload, ApprovalsOverview } from '../types'
 
 export const approvalService = {
   getApprovals: async (filter: ApprovalFilter = {}): Promise<ApprovalsOverview> => {
-    try {
-      const response = await httpClient.get<ApprovalsOverview>('/api/approvals', {
-        params: filter,
+    const response = await httpClient.get<RequestDetailItem[]>('/api/v1/approvals', {
+      params: {
+        q: filter.q,
+        type: filter.type,
+      },
+    })
+    const allRequests: RequestDetailItem[] = response.data || []
+    const userRole = filter.role || 'admin'
+
+    let pending: RequestDetailItem[] = []
+    let history: RequestDetailItem[] = []
+
+    if (userRole === 'admin') {
+      pending = allRequests.filter((r) => {
+        const isWaiting = r.statusTag?.text.startsWith('Waiting') || r.chain?.some((s) => s.status === 'current')
+        return isWaiting && r.statusTag?.cls !== 'stop' && r.statusTag?.cls !== 'go'
       })
-      return response.data
-    } catch {
-      const allRequests = await requestService.getRequests()
-      const userRole = filter.role || 'admin'
-      const q = filter.q?.toLowerCase() || ''
-      const typeFilter = filter.type || 'All types'
-
-      // Filter by search and type
-      const filtered = allRequests.filter((r) => {
-        const matchesQ =
-          !q ||
-          r.id.toLowerCase().includes(q) ||
-          r.outlet.toLowerCase().includes(q) ||
-          r.by.toLowerCase().includes(q)
-        const matchesType = typeFilter === 'All types' || r.type === typeFilter
-        return matchesQ && matchesType
+      history = allRequests.filter((r) => !pending.includes(r))
+    } else {
+      pending = allRequests.filter((r) => {
+        const step = r.chain?.find((x) => x.role === userRole || x.roleLabel === userRole)
+        return step && step.status === 'current'
       })
-
-      // Separate into pending vs history
-      let pending: RequestDetailItem[] = []
-      let history: RequestDetailItem[] = []
-
-      if (userRole === 'admin') {
-        pending = filtered.filter((r) => r.step >= 0 && r.step < r.chain.length)
-        history = filtered.filter(
-          (r) => (r.step >= 0 && r.step >= r.chain.length) || r.step === -1 || r.step === -2
-        )
-      } else {
-        pending = filtered.filter((r) => {
-          const n = r.chain.find((x) => x.role === userRole)
-          return n && n.status === 'current'
-        })
-        history = filtered.filter((r) => {
-          const n = r.chain.find((x) => x.role === userRole)
-          return n && (n.status === 'approved' || n.status === 'revision' || n.status === 'rejected')
-        })
-      }
-
-      return { pending, history }
+      history = allRequests.filter((r) => {
+        const step = r.chain?.find((x) => x.role === userRole || x.roleLabel === userRole)
+        return step && (step.status === 'approved' || step.status === 'revision' || step.status === 'rejected')
+      })
     }
+
+    return { pending, history }
   },
 
   getApprovalDetail: async (id: string): Promise<RequestDetailItem | undefined> => {
     try {
-      const response = await httpClient.get<RequestDetailItem>(`/api/approvals/${id}`)
+      const response = await httpClient.get<RequestDetailItem>(`/api/v1/approvals/${id}`)
       return response.data
-    } catch {
-      return requestService.getRequestById(id)
+    } catch (err: any) {
+      if (err?.response?.status === 404) return undefined
+      throw err
     }
   },
 
   actOnApproval: async (payload: ApprovalActionPayload): Promise<RequestDetailItem> => {
-    try {
-      const response = await httpClient.post<RequestDetailItem>(
-        `/api/approvals/${payload.requestId}/action`,
-        payload
-      )
-      return response.data
-    } catch {
-      // Local fallback state mutation
-      const req = await requestService.getRequestById(payload.requestId)
-      if (!req) throw new Error('Request not found')
-
-      const idx = req.step
-      if (idx < 0 || idx >= req.chain.length) {
-        throw new Error('This request is not currently waiting for approval step')
+    const response = await httpClient.post<RequestDetailItem>(
+      `/api/v1/approvals/${payload.requestId}/action`,
+      {
+        action: payload.action,
+        comment: payload.comment,
       }
-
-      const roleLbl = req.chain[idx]?.roleLabel || req.chain[idx]?.role || 'Approver'
-      const todayStr = 'Today'
-
-      if (payload.action === 'approve') {
-        req.chain[idx].status = 'approved'
-        req.hist.push({ role: roleLbl, action: 'Approved', date: todayStr, type: 'go' })
-
-        if (idx < req.chain.length - 1) {
-          req.step = idx + 1
-          req.chain[req.step].status = 'current'
-          const nextRoleLabel = req.chain[req.step].roleLabel || req.chain[req.step].role
-          req.statusTag = { cls: 'warn', text: `Waiting — ${nextRoleLabel}` }
-        } else {
-          req.step = req.chain.length
-          req.fulfillStep = 0
-          req.statusTag = { cls: 'brand', text: `Fulfillment — ${FULFILL_STAGES[0]}` }
-        }
-      } else if (payload.action === 'revision') {
-        req.chain[idx].status = 'revision'
-        req.hist.push({ role: roleLbl, action: 'Requested revision', date: todayStr, type: 'warn' })
-        req.statusTag = { cls: 'warn', text: `Revision — ${roleLbl}` }
-        req.step = -1
-      } else if (payload.action === 'reject') {
-        req.chain[idx].status = 'rejected'
-        req.hist.push({ role: roleLbl, action: 'Rejected', date: todayStr, type: 'stop' })
-        req.statusTag = { cls: 'stop', text: `Rejected — ${roleLbl}` }
-        req.step = -2
-      }
-
-      return { ...req }
-    }
+    )
+    return response.data
   },
 }

@@ -1,7 +1,7 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { Button, Spin, message, Modal } from 'antd'
-import { ArrowLeftOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { Button, Spin, message, Modal, Input, Alert } from 'antd'
+import { ArrowLeftOutlined } from '@ant-design/icons'
 import { useGetApprovalDetail, useActOnApproval } from '../hooks/useApprovals'
 import { ROLE_LABELS } from '@/features/requests/services/requestService'
 import type { ApprovalChainStep, HistoryItem } from '@/features/requests/types'
@@ -40,37 +40,53 @@ export default function ApprovalDetail() {
       ? request.step >= 0 && request.step < request.chain.length
       : request.chain.some((x) => x.role === userRole && x.status === 'current')
 
-  const handleAction = (action: ApprovalActionType) => {
-    const actionNames: Record<ApprovalActionType, string> = {
-      approve: 'Approve',
-      revision: 'Request Revision',
-      reject: 'Reject',
+  const [modalAction, setModalAction] = useState<ApprovalActionType | null>(null)
+  const [actionComment, setActionComment] = useState('')
+  const [actionSubmitting, setActionSubmitting] = useState(false)
+
+  const openActionModal = (action: ApprovalActionType) => {
+    setModalAction(action)
+    setActionComment('')
+  }
+
+  const handleConfirmAction = async () => {
+    if (!modalAction) return
+    if (modalAction === 'revision' && !actionComment.trim()) {
+      message.error('Komentar wajib diisi ketika meminta revisi')
+      return
     }
 
-    Modal.confirm({
-      title: `Konfirmasi ${actionNames[action]}`,
-      icon: <ExclamationCircleOutlined className="text-amber-500" />,
-      content: `Apakah Anda yakin ingin melakukan aksi '${actionNames[action]}' pada ${request.id}?`,
-      okText: 'Ya, Lanjutkan',
-      cancelText: 'Batal',
-      okButtonProps: {
-        danger: action === 'reject',
-      },
-      onOk: async () => {
-        try {
-          await actMutation.mutateAsync({
-            requestId: request.id,
-            action,
-            userRole,
-          })
-          if (action === 'approve') message.success(`Request ${request.id} berhasil disetujui`)
-          else if (action === 'revision') message.warning(`Permintaan revisi dikirim untuk ${request.id}`)
-          else message.error(`Request ${request.id} ditolak`)
-        } catch {
-          message.error('Gagal memperbarui status approval')
-        }
-      },
-    })
+    try {
+      setActionSubmitting(true)
+      await actMutation.mutateAsync({
+        requestId: request.id,
+        action: modalAction,
+        comment: actionComment.trim() || undefined,
+        userRole,
+      })
+      if (modalAction === 'approve') {
+        message.success(`Request ${request.id} berhasil disetujui`)
+      } else if (modalAction === 'revision') {
+        message.warning(`Request ${request.id} ditolak dengan catatan revisi. Requester diminta mengajukan ulang.`)
+      } else {
+        message.error(`Request ${request.id} ditolak`)
+      }
+      setModalAction(null)
+    } catch (err: any) {
+      const status = err?.response?.status
+      const errorMsg = err?.response?.data?.error || err?.message
+      if (status === 409) {
+        message.error('Request sedang dalam proses sinkronisasi dengan Approval Engine. Mohon tunggu beberapa saat dan coba kembali.')
+      } else if (status === 502) {
+        message.error(`Approval Engine error: ${errorMsg}`)
+      } else if (errorMsg) {
+        message.error(errorMsg)
+      } else {
+        message.error('Gagal memperbarui status approval')
+      }
+    } finally {
+      setActionSubmitting(false)
+    }
   }
 
   const renderStatusTag = () => {
@@ -300,7 +316,7 @@ export default function ApprovalDetail() {
                   type="button"
                   className="btn btn-go"
                   style={{ width: '100%', marginBottom: '8px' }}
-                  onClick={() => handleAction('approve')}
+                  onClick={() => openActionModal('approve')}
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
                     <path d="M20 6L9 17l-5-5" />
@@ -312,19 +328,19 @@ export default function ApprovalDetail() {
                   type="button"
                   className="btn btn-warn"
                   style={{ width: '100%', marginBottom: '8px' }}
-                  onClick={() => handleAction('revision')}
+                  onClick={() => openActionModal('revision')}
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <path d="M3 12a9 9 0 019-9 9 9 0 016.7 3M21 3v6h-6" />
                   </svg>
-                  Request revision
+                  Tolak & Minta Revisi
                 </button>
 
                 <button
                   type="button"
                   className="btn btn-stop"
                   style={{ width: '100%' }}
-                  onClick={() => handleAction('reject')}
+                  onClick={() => openActionModal('reject')}
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
                     <path d="M18 6L6 18M6 6l12 12" />
@@ -352,6 +368,79 @@ export default function ApprovalDetail() {
           </div>
         </div>
       </div>
+
+      <Modal
+        title={
+          modalAction === 'approve'
+            ? 'Konfirmasi Approval'
+            : modalAction === 'revision'
+            ? 'Tolak & Minta Revisi (Ajukan Ulang)'
+            : 'Konfirmasi Reject'
+        }
+        open={modalAction !== null}
+        onCancel={() => !actionSubmitting && setModalAction(null)}
+        footer={[
+          <Button key="cancel" onClick={() => setModalAction(null)} disabled={actionSubmitting}>
+            Batal
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            danger={modalAction === 'reject'}
+            loading={actionSubmitting}
+            disabled={modalAction === 'revision' && !actionComment.trim()}
+            onClick={handleConfirmAction}
+            className={modalAction === 'revision' ? '!bg-amber-500 hover:!bg-amber-600 !border-amber-500' : ''}
+          >
+            {modalAction === 'approve'
+              ? 'Ya, Approve'
+              : modalAction === 'revision'
+              ? 'Tolak & Minta Revisi'
+              : 'Ya, Tolak Request'}
+          </Button>,
+        ]}
+      >
+        {modalAction === 'approve' && (
+          <p className="text-slate-600 my-4">
+            Apakah Anda yakin ingin menyetujui request <b>{request.id}</b> ({request.type} - {request.outlet})?
+          </p>
+        )}
+
+        {modalAction === 'revision' && (
+          <div className="flex flex-col gap-3 my-4">
+            <Alert
+              type="warning"
+              showIcon
+              message="Perhatian: Alur Revisi"
+              description="Sesuai aturan Approval Engine, permintaan revisi akan menolak request ini. Requester wajib membuat request baru (Ajukan Ulang) yang memuat catatan perbaikan Anda."
+            />
+            <label className="text-sm font-semibold text-slate-700">
+              Catatan / Alasan Revisi <span className="text-rose-500">* (Wajib diisi)</span>
+            </label>
+            <Input.TextArea
+              rows={4}
+              placeholder="Jelaskan bagian yang perlu direvisi (misal: quantity disesuaikan, cabang distributor salah, dll)..."
+              value={actionComment}
+              onChange={(e) => setActionComment(e.target.value)}
+            />
+          </div>
+        )}
+
+        {modalAction === 'reject' && (
+          <div className="flex flex-col gap-3 my-4">
+            <p className="text-slate-600">
+              Apakah Anda yakin ingin menolak request <b>{request.id}</b> secara permanen?
+            </p>
+            <label className="text-sm font-semibold text-slate-700">Alasan Penolakan (Opsional)</label>
+            <Input.TextArea
+              rows={3}
+              placeholder="Tuliskan alasan penolakan bila ada..."
+              value={actionComment}
+              onChange={(e) => setActionComment(e.target.value)}
+            />
+          </div>
+        )}
+      </Modal>
     </>
   )
 }

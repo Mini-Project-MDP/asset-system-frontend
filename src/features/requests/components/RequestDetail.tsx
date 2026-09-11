@@ -125,6 +125,11 @@ export default function RequestDetail() {
               <Text className="font-semibold text-sm text-slate-800">
                 {ev.role} — {ev.action}
               </Text>
+              {ev.comment && (
+                <div className="p-2 rounded-lg bg-amber-50/70 border border-amber-200 text-xs text-slate-700 italic my-1">
+                  "{ev.comment}"
+                </div>
+              )}
               <Text className="font-mono text-xs text-slate-400">{ev.date}</Text>
             </div>
           ),
@@ -132,6 +137,12 @@ export default function RequestDetail() {
       />
     )
   }
+
+  const isRejectedOrRevision =
+    request.statusTag.cls === 'stop' ||
+    request.statusTag.text === 'Rejected' ||
+    request.statusTag.text.toLowerCase().includes('revision') ||
+    request.hist.some((h) => h.action === 'Requested revision')
 
   return (
     <div className="flex flex-col gap-6">
@@ -148,10 +159,66 @@ export default function RequestDetail() {
             {request.type} · {request.outlet}
           </Paragraph>
         </div>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/requests')}>
-          Back
-        </Button>
+        <div className="flex items-center gap-2">
+          {isRejectedOrRevision && (
+            <Button
+              type="primary"
+              className="!bg-amber-600 hover:!bg-amber-700 !font-semibold"
+              onClick={() => navigate('/requests/new', { state: { prefill: request, revisedFromId: request.id } })}
+            >
+              Ajukan Ulang (Revisi)
+            </Button>
+          )}
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/requests')}>
+            Back
+          </Button>
+        </div>
       </div>
+
+      {/* RevisedFrom Banner if this request is a resubmission */}
+      {request.revisedFromId && (
+        <Alert
+          type="info"
+          showIcon
+          message={
+            <span>
+              Request ini adalah pengajuan ulang (revisi) dari{' '}
+              <a
+                className="font-mono font-bold underline cursor-pointer text-blue-600"
+                onClick={() => navigate(`/requests/${request.revisedFromId}`)}
+              >
+                {request.revisedFromId}
+              </a>
+            </span>
+          }
+          className="rounded-2xl"
+        />
+      )}
+
+      {/* Resubmit Alert if request is rejected/revision */}
+      {isRejectedOrRevision && (
+        <Alert
+          type="warning"
+          showIcon
+          message="Permintaan Revisi / Ditolak"
+          description={
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-1">
+              <span>
+                Request ini telah ditolak dengan catatan revisi. Anda dapat mengajukan request baru yang telah ter-prefill dari data ini untuk diperbaiki.
+              </span>
+              <Button
+                type="primary"
+                size="small"
+                className="!bg-amber-600 hover:!bg-amber-700 !font-semibold shrink-0"
+                onClick={() => navigate('/requests/new', { state: { prefill: request, revisedFromId: request.id } })}
+              >
+                Ajukan Ulang Sekarang
+              </Button>
+            </div>
+          }
+          className="rounded-2xl border-amber-200 bg-amber-50"
+        />
+      )}
 
       {/* Approval Route Card */}
       <Card className="shadow-sm border border-slate-200 rounded-2xl">
@@ -223,6 +290,22 @@ export default function RequestDetail() {
                       key: 'reqType',
                       label: 'Request Type',
                       children: request.reqType,
+                    },
+                  ]
+                : []),
+              ...(request.revisedFromId
+                ? [
+                    {
+                      key: 'revisedFrom',
+                      label: 'Revisi Dari',
+                      children: (
+                        <a
+                          className="font-mono font-bold underline cursor-pointer text-blue-600"
+                          onClick={() => navigate(`/requests/${request.revisedFromId}`)}
+                        >
+                          {request.revisedFromId}
+                        </a>
+                      ),
                     },
                   ]
                 : []),

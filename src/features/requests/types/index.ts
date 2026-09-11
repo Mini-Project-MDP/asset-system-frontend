@@ -15,6 +15,7 @@ export interface HistoryItem {
   action: string
   date: string
   type: 'go' | 'warn' | 'stop'
+  comment?: string | null
 }
 
 export interface RequestDetailItem {
@@ -37,7 +38,10 @@ export interface RequestDetailItem {
     text: string
   }
   fulfillStep?: number
-  fulfillData?: any
+  fulfillData?: Record<string, unknown> | null
+  revisedFromId?: string | null
+  approvalStatus?: string
+  currentStepName?: string | null
 }
 
 export interface RequestFilter {
@@ -58,6 +62,7 @@ export const createRequestSchema = z.object({
   requesterName: z.string().min(1, 'Nama requester wajib diisi.'),
   qty: z.number().min(1, 'Quantity wajib diisi dengan angka.'),
   priority: z.enum(['normal', 'high', 'urgent']),
+  revisedFromId: z.string().optional(),
 }).refine(
   (data) => {
     if (data.category === 'Android' && !data.reqType) {

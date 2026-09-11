@@ -58,7 +58,7 @@ export const settingsService = {
   // Outlets
   getOutlets: async (): Promise<OutletItem[]> => {
     try {
-      const res = await httpClient.get<OutletItem[]>('/api/settings/outlets')
+      const res = await httpClient.get<OutletItem[]>('/api/v1/settings/outlets')
       return res.data
     } catch {
       return [...outletsStore]
@@ -79,7 +79,7 @@ export const settingsService = {
   // Distributors
   getDistributors: async (): Promise<DistributorItem[]> => {
     try {
-      const res = await httpClient.get<DistributorItem[]>('/api/settings/distributors')
+      const res = await httpClient.get<DistributorItem[]>('/api/v1/settings/distributors')
       return res.data
     } catch {
       return [...distributorsStore]
@@ -100,7 +100,7 @@ export const settingsService = {
   // Types
   getTypes: async (): Promise<AssetTypeItem[]> => {
     try {
-      const res = await httpClient.get<AssetTypeItem[]>('/api/settings/types')
+      const res = await httpClient.get<AssetTypeItem[]>('/api/v1/settings/types')
       return res.data
     } catch {
       return [...typesStore]
@@ -129,7 +129,7 @@ export const settingsService = {
   // Users
   getUsers: async (): Promise<UserRoleItem[]> => {
     try {
-      const res = await httpClient.get<UserRoleItem[]>('/api/settings/users')
+      const res = await httpClient.get<UserRoleItem[]>('/api/v1/users')
       return res.data
     } catch {
       return [...usersStore]

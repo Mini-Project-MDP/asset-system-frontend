@@ -4,7 +4,7 @@ import type { DashboardOverviewResponse } from '../types'
 export const dashboardService = {
   getOverview: async (): Promise<DashboardOverviewResponse> => {
     try {
-      const response = await httpClient.get<DashboardOverviewResponse>('/api/dashboard/overview')
+      const response = await httpClient.get<DashboardOverviewResponse>('/api/v1/dashboard/overview')
       return response.data
     } catch {
       // Fallback mock data matching prototype index.html
