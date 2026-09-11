@@ -30,7 +30,7 @@ export const SSOCallbackPage: React.FC = () => {
 
     const processSSOCallback = async () => {
       try {
-        const ssoBackendUrl = import.meta.env.VITE_SSO_API_URL || 'http://localhost:8082'
+        const ssoBackendUrl = import.meta.env.VITE_SSO_API_URL || 'https://sso-service.vercel.app'
 
         // 1. Exchange authorization code for JWT token
         setStatusMsg('Exchanging authorization code with Mayora SSO...')

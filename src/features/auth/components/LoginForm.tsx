@@ -6,7 +6,7 @@ const { Title, Text } = Typography
 
 export const LoginForm: React.FC = () => {
   const handleSSOLoginRedirect = () => {
-    const ssoServerUrl = import.meta.env.VITE_SSO_PORTAL_URL || 'http://localhost:5174'
+    const ssoServerUrl = import.meta.env.VITE_SSO_PORTAL_URL || 'https://sso-frontend-alpha.vercel.app'
     const clientId = 'app_asset_mgmt_123'
     const redirectUri = `${import.meta.env.VITE_APP_URL || window.location.origin}/sso/callback`
 
