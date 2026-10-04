@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Input, Select, message } from 'antd'
+import type { InputRef } from 'antd'
 import { CheckOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons'
+import { getApiErrorMessage } from '@/shared/utils/apiError'
 import { lookupImei } from '../services/fulfillmentService'
+import type { ImeiInfo } from '../types'
 import { useGetPhoneCatalog } from '../hooks/useFulfillment'
 import type { CategoryType } from '@/features/requests/types'
 
@@ -84,6 +87,8 @@ export default function FulfillDataForm({ category, qty, onSave }: FulfillDataFo
   const [androidUnits, setAndroidUnits] = useState<AndroidUnitState[]>([])
   const [specsText, setSpecsText] = useState('')
   const { data: phoneCatalog = [] } = useGetPhoneCatalog()
+  // One ref per unit's IMEI field, so a scan can hand focus to the next unit.
+  const imeiInputs = useRef<(InputRef | null)[]>([])
 
   // Models on offer depend on the chosen brand; a manual ("Lainnya") or unknown
   // brand has no catalog models, so only the manual option is left.
@@ -179,28 +184,33 @@ export default function FulfillDataForm({ category, qty, onSave }: FulfillDataFo
     document.body.removeChild(link)
   }
 
-  const handleScanImei = (idx: number, imeiValue: string) => {
-    const info = lookupImei(imeiValue)
-    if (info) {
-      setAndroidUnits((prev) => {
-        const next = [...prev]
-        next[idx] = {
-          ...next[idx],
-          imei: imeiValue,
-          brand: info.brand,
-          model: info.model,
-          releaseYear: info.releaseYear,
-        }
-        return next
-      })
-      message.success(`IMEI dikenali — ${info.brand} ${info.model}`)
-    } else {
-      setAndroidUnits((prev) => {
-        const next = [...prev]
-        next[idx] = { ...next[idx], imei: imeiValue }
-        return next
-      })
+  // An unknown or failed lookup never blocks the form: the user fills in brand
+  // and model by hand.
+  const handleScanImei = async (idx: number, imeiValue: string) => {
+    let info: ImeiInfo | null
+    try {
+      info = await lookupImei(imeiValue)
+    } catch (err) {
+      message.warning(getApiErrorMessage(err, 'Pencarian IMEI gagal — isi data unit secara manual.'))
+      return
     }
+
+    if (!info) {
+      message.info('IMEI tidak dikenali — isi merk dan model secara manual.')
+      return
+    }
+    const device = info
+    setAndroidUnits((prev) => {
+      const next = [...prev]
+      next[idx] = {
+        ...next[idx],
+        brand: device.brand,
+        model: device.model,
+        releaseYear: device.releaseYear,
+      }
+      return next
+    })
+    message.success(`IMEI dikenali — ${device.brand} ${device.model}`)
   }
 
   const handleSubmitBarcode = () => {
@@ -353,10 +363,16 @@ export default function FulfillDataForm({ category, qty, onSave }: FulfillDataFo
                         return next
                       })
                     }}
+                    ref={(el) => {
+                      imeiInputs.current[i] = el
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
-                        handleScanImei(i, u.imei)
+                        // Look the device up in the background and move straight on:
+                        // consecutive scans must not wait for the previous lookup.
+                        void handleScanImei(i, u.imei)
+                        imeiInputs.current[i + 1]?.focus()
                       }
                     }}
                     className="font-mono text-xs"

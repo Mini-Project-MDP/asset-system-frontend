@@ -12,6 +12,13 @@ export interface BarcodeFulfillmentInput {
   codes: string[]
 }
 
+/** A device identified from its IMEI (via the TAC reference table). */
+export interface ImeiInfo {
+  brand: string
+  model: string
+  releaseYear: string
+}
+
 export interface PhoneModel {
   id: string
   brand_id: string

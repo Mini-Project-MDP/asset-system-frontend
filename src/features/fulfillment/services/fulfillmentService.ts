@@ -1,16 +1,19 @@
 import { httpClient } from '@/shared/services/httpClient'
 import type { RequestDetailItem } from '@/features/requests/types'
 import { FULFILL_STAGES } from '@/features/requests/services/requestService'
-import type { FulfillmentFilter, FulfillmentOverview, PhoneBrand } from '../types'
+import type { FulfillmentFilter, FulfillmentOverview, ImeiInfo, PhoneBrand } from '../types'
 
-export const LOOKUP_IMEIS: Record<string, { brand: string; model: string; releaseYear: string }> = {
-  '354892019283741': { brand: 'Samsung', model: 'Galaxy Tab', releaseYear: '2023' },
-  '864920192837412': { brand: 'Xiaomi', model: 'Redmi Note', releaseYear: '2022' },
-  '358291029384756': { brand: 'Oppo', model: 'A-series', releaseYear: '2024' },
-}
-
-export function lookupImei(imei: string) {
-  return LOOKUP_IMEIS[imei.trim()] || null
+/**
+ * Identifies a device from its IMEI. Resolves to null when the device is not in
+ * the reference table (the form then falls back to manual input); rejects when
+ * the value is not a plausible IMEI or the request fails.
+ */
+export async function lookupImei(imei: string): Promise<ImeiInfo | null> {
+  const response = await httpClient.get<{ found: boolean } & Partial<ImeiInfo>>(
+    `/api/v1/fulfillment/imei-lookup/${encodeURIComponent(imei.trim())}`
+  )
+  const { found, brand, model, releaseYear } = response.data
+  return found && brand && model && releaseYear ? { brand, model, releaseYear } : null
 }
 
 export const fulfillmentService = {

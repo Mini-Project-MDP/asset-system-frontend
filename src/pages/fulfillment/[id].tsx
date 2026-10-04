@@ -12,6 +12,7 @@ import FulfillDataSummary from '@/features/fulfillment/components/FulfillDataSum
 import FulfillDataForm from '@/features/fulfillment/components/FulfillDataForm'
 import { ROLE_LABELS, FULFILL_STAGES } from '@/features/requests/services/requestService'
 import type { HistoryItem } from '@/features/requests/types'
+import { getApiErrorMessage } from '@/shared/utils/apiError'
 
 export default function FulfillmentDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -100,8 +101,8 @@ export default function FulfillmentDetailPage() {
     try {
       await saveMutation.mutateAsync({ id: request.id, fulfillData })
       message.success('Data aset disimpan — berhasil lanjut ke tahap Shipped')
-    } catch {
-      message.error('Gagal menyimpan data aset')
+    } catch (err) {
+      message.error(getApiErrorMessage(err, 'Gagal menyimpan data aset'))
     }
   }
 
@@ -115,8 +116,8 @@ export default function FulfillmentDetailPage() {
         try {
           await advanceMutation.mutateAsync(request.id)
           message.success(`Status berhasil diperbarui ke ${nextLabel}`)
-        } catch {
-          message.error('Gagal memperbarui tahap fulfillment')
+        } catch (err) {
+          message.error(getApiErrorMessage(err, 'Gagal memperbarui tahap fulfillment'))
         }
       },
     })
