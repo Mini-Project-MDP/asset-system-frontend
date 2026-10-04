@@ -1,7 +1,9 @@
 import { httpClient } from '@/shared/services/httpClient'
+import { MANUAL_DISTRIBUTOR } from '../types'
 import type {
   RequestDetailItem,
   RequestFilter,
+  RequestFormOptions,
   CreateRequestFormInput,
   CategoryType,
 } from '../types'
@@ -22,28 +24,6 @@ export const CATEGORY_HIERARCHY: Record<CategoryType, string[]> = {
   Server: ['Cabang', 'GRSM', 'NSM', 'SD'],
 }
 
-export const REQUESTER_ROLES_BY_CATEGORY: Record<CategoryType, string[]> = {
-  Barcode: ['SA', 'SS', 'RSM', 'GRSM', 'NSM', 'SD'],
-  Android: ['Cabang', 'SD'],
-  Server: ['Cabang', 'SD'],
-}
-
-export const DISTRIBUTORS = [
-  'PT Distributor Utama',
-  'PT Karya Selaras',
-  'PT Mitra Jaya Abadi',
-  'CV Sumber Makmur',
-]
-
-export const DISTRIBUTOR_OUTLETS: Record<string, string[]> = {
-  'PT Distributor Utama': ['Bandung Kota', 'Depok Tengah'],
-  'PT Karya Selaras': ['Surabaya Timur', 'Bekasi Utara'],
-  'PT Mitra Jaya Abadi': ['Medan Kota'],
-  'CV Sumber Makmur': ['Cirebon Kota'],
-}
-
-export const SALES_DIVISIONS = ['M1 BIS', 'M1 CWC', 'M245', 'M3']
-export const REQ_TYPES = ['Baru', 'Peremajaan']
 export const FULFILL_STAGES = ['Processing', 'Shipped', 'Delivered']
 
 export function computeChain(category: CategoryType, requesterRole: string): string[] {
@@ -73,13 +53,19 @@ export const requestService = {
     }
   },
 
-  createRequest: async (input: CreateRequestFormInput): Promise<RequestDetailItem> => {
-    const distributorName =
-      input.distributor === '__other__' ? input.distributorManual || 'Manual Distributor' : input.distributor
+  getFormOptions: async (): Promise<RequestFormOptions> => {
+    const response = await httpClient.get<RequestFormOptions>('/api/v1/requests/form-options')
+    return response.data
+  },
 
+  createRequest: async (input: CreateRequestFormInput): Promise<RequestDetailItem> => {
+    // A distributor from master data is sent by name; one typed in by hand is sent as
+    // its own field, never as a made-up master data name.
+    const isManual = input.distributor === MANUAL_DISTRIBUTOR
     const payload = {
       ...input,
-      distributor: distributorName,
+      distributor: isManual ? '' : input.distributor,
+      distributorManual: isManual ? (input.distributorManual ?? '').trim() : '',
       revisedFromId: input.revisedFromId || undefined,
     }
 

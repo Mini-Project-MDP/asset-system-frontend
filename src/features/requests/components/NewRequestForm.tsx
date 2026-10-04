@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, type FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, useLocation } from 'react-router'
 import {
@@ -11,37 +11,90 @@ import {
   Button,
   Card,
   Alert,
+  Spin,
   Steps,
   Typography,
+  message,
 } from 'antd'
 import { ArrowLeftOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { getApiErrorField, getApiErrorMessage } from '@/shared/utils/apiError'
 import {
   createRequestSchema,
+  MANUAL_DISTRIBUTOR,
   type CreateRequestFormInput,
   type CategoryType,
   type RequestDetailItem,
+  type RequestFormOptions,
 } from '../types'
-import {
-  DISTRIBUTORS,
-  DISTRIBUTOR_OUTLETS,
-  SALES_DIVISIONS,
-  REQ_TYPES,
-  REQUESTER_ROLES_BY_CATEGORY,
-  ROLE_LABELS,
-  computeChain,
-} from '../services/requestService'
-import { useCreateRequest } from '../hooks/useRequests'
+import { ROLE_LABELS, computeChain } from '../services/requestService'
+import { useCreateRequest, useRequestFormOptions } from '../hooks/useRequests'
 
 const { Title, Paragraph, Text } = Typography
 
+// The fields in the order they appear on the form: the first invalid one gets the focus.
+const FIELD_ORDER: (keyof CreateRequestFormInput)[] = [
+  'category',
+  'distributor',
+  'distributorManual',
+  'outlet',
+  'salesDivision',
+  'reqType',
+  'requesterRole',
+  'requesterName',
+  'qty',
+  'priority',
+]
+
+/** Scrolls to a field and puts the cursor in it. */
+function focusField(name: string) {
+  const root = document.getElementById(`field-${name}`)
+  if (!root) return
+  root.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  root.querySelector<HTMLElement>('input, textarea, button')?.focus({ preventScroll: true })
+}
+
+/** Wraps a form item so focusField can find it. */
+function Field({ name, children }: { name: string; children: React.ReactNode }) {
+  return <div id={`field-${name}`}>{children}</div>
+}
+
+const priorityLabel = (p: string) => p.charAt(0).toUpperCase() + p.slice(1)
+
 export default function NewRequestForm() {
+  const { data: options, isLoading, isError, error } = useRequestFormOptions()
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Spin size="large" />
+      </div>
+    )
+  }
+  if (isError || !options) {
+    return (
+      <Alert
+        type="error"
+        showIcon
+        message="Form tidak dapat dimuat"
+        description={getApiErrorMessage(error, 'Data master untuk form request tidak dapat dimuat. Coba muat ulang halaman.')}
+        className="rounded-xl"
+      />
+    )
+  }
+  return <NewRequestFormBody options={options} />
+}
+
+function NewRequestFormBody({ options }: { options: RequestFormOptions }) {
   const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as { prefill?: RequestDetailItem; revisedFromId?: string } | undefined
   const prefill = state?.prefill
   const revisedFromId = state?.revisedFromId || prefill?.id
 
-  const isDistributorKnown = prefill?.distributor ? DISTRIBUTORS.includes(prefill.distributor) : true
+  // A resubmission is prefilled; a distributor that is no longer in master data is carried over as typed text.
+  const isDistributorKnown = prefill?.distributor
+    ? options.distributors.some((d) => d.name === prefill.distributor)
+    : true
 
   const { mutateAsync: createRequest, isPending } = useCreateRequest()
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -50,20 +103,24 @@ export default function NewRequestForm() {
     handleSubmit,
     watch,
     setValue,
+    setError,
     control,
     formState: { errors },
   } = useForm<CreateRequestFormInput>({
     resolver: zodResolver(createRequestSchema),
+    // Focus is decided by onInvalid, in the order of the form: RHF's own pick would be
+    // whichever invalid field happens to hold a ref (only the plain inputs do, not the selects).
+    shouldFocusError: false,
     defaultValues: {
       category: (prefill?.type as CategoryType) || 'Barcode',
-      distributor: prefill ? (isDistributorKnown ? prefill.distributor : '__other__') : '',
+      distributor: prefill ? (isDistributorKnown ? prefill.distributor : MANUAL_DISTRIBUTOR) : '',
       distributorManual: prefill && !isDistributorKnown ? prefill.distributor : '',
       outlet: prefill?.outlet || '',
       salesDivision: prefill?.salesDivision || '',
       reqType: prefill?.reqType || '',
       requesterRole: prefill?.byRole || 'SA',
-      requesterName: prefill?.by || 'Admin Staff',
-      qty: prefill?.qty || 5,
+      requesterName: prefill?.by || '',
+      qty: prefill?.qty || 1,
       priority: prefill?.pri || 'normal',
       revisedFromId: revisedFromId || '',
     },
@@ -73,25 +130,35 @@ export default function NewRequestForm() {
   const selectedDistributor = watch('distributor')
   const selectedRequesterRole = watch('requesterRole')
 
+  const roleOptions = useMemo(
+    () => options.requesterRoles[selectedCategory] ?? [],
+    [options, selectedCategory]
+  )
+
   // Update available requester roles when category changes
   useEffect(() => {
-    const roles = REQUESTER_ROLES_BY_CATEGORY[selectedCategory] || []
-    if (roles.length > 0 && !roles.includes(selectedRequesterRole)) {
-      setValue('requesterRole', roles[0])
+    if (roleOptions.length > 0 && !roleOptions.some((r) => r.code === selectedRequesterRole)) {
+      setValue('requesterRole', roleOptions[0].code)
     }
-  }, [selectedCategory, selectedRequesterRole, setValue])
+  }, [roleOptions, selectedRequesterRole, setValue])
 
-  // Available outlets for selected distributor
+  // The outlets of the chosen distributor; every outlet when the distributor is typed in by hand.
   const availableOutlets = useMemo(() => {
-    const base = DISTRIBUTOR_OUTLETS[selectedDistributor] || []
-    if (prefill?.outlet && !base.includes(prefill.outlet)) {
-      return [...base, prefill.outlet]
-    }
-    return base
-  }, [selectedDistributor, prefill?.outlet])
+    const list =
+      selectedDistributor === MANUAL_DISTRIBUTOR
+        ? options.outlets
+        : (options.distributors.find((d) => d.name === selectedDistributor)?.outlets ?? [])
+    const seen = new Set<string>()
+    return list.filter((o) => !seen.has(o.name) && !!seen.add(o.name))
+  }, [selectedDistributor, options])
 
   // Compute live approval chain preview
   const liveChain = computeChain(selectedCategory, selectedRequesterRole)
+
+  const onInvalid = (invalid: FieldErrors<CreateRequestFormInput>) => {
+    const first = FIELD_ORDER.find((name) => invalid[name])
+    if (first) focusField(first)
+  }
 
   const onSubmit = async (data: CreateRequestFormInput) => {
     try {
@@ -100,10 +167,18 @@ export default function NewRequestForm() {
         ...data,
         revisedFromId: revisedFromId || data.revisedFromId || undefined,
       })
-      navigate(`/requests/${createdItem.id}`)
+      message.success(`Request ${createdItem.id} berhasil dikirim`)
+      navigate('/requests')
     } catch (err: unknown) {
-      const errorObj = err as { message?: string }
-      setSubmitError(errorObj.message || 'Gagal membuat request. Silakan coba lagi.')
+      const text = getApiErrorMessage(err, 'Gagal membuat request. Silakan coba lagi.')
+      const field = getApiErrorField(err)
+      if (field && (FIELD_ORDER as string[]).includes(field)) {
+        // The server found a problem with one field: mark that field, like a local validation error.
+        setError(field as keyof CreateRequestFormInput, { type: 'server', message: text })
+        focusField(field)
+      } else {
+        setSubmitError(text)
+      }
     }
   }
 
@@ -157,93 +232,97 @@ export default function NewRequestForm() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Left 2 Columns: Form */}
         <Card className="lg:col-span-2 shadow-sm border border-slate-200 rounded-2xl">
-          <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
+          <Form layout="vertical" onFinish={handleSubmit(onSubmit, onInvalid)}>
             {/* Category */}
-            <Form.Item
-              label={<span className="font-semibold text-slate-700">Request Category</span>}
-              required
-              validateStatus={errors.category ? 'error' : ''}
-              help={errors.category?.message}
-            >
-              <Controller
-                name="category"
-                control={control}
-                render={({ field }) => (
-                  <Segmented
-                    size="large"
-                    options={['Barcode', 'Android', 'Server']}
-                    value={field.value}
-                    onChange={(val) => {
-                      field.onChange(val)
-                      setValue('outlet', '')
-                    }}
-                    className="bg-slate-100 p-1"
-                  />
-                )}
-              />
-            </Form.Item>
-
-            {/* Distributor */}
-            <Form.Item
-              label={<span className="font-semibold text-slate-700">Distributor</span>}
-              required
-              validateStatus={errors.distributor ? 'error' : ''}
-              help={errors.distributor?.message}
-            >
-              <Controller
-                name="distributor"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    size="large"
-                    showSearch
-                    placeholder="Select distributor…"
-                    value={field.value || undefined}
-                    onChange={(val) => {
-                      field.onChange(val)
-                      setValue('outlet', '')
-                    }}
-                    options={[
-                      ...DISTRIBUTORS.map((d) => ({ label: d, value: d })),
-                      { label: 'Lainnya (isi manual)', value: '__other__' },
-                    ]}
-                  />
-                )}
-              />
-            </Form.Item>
-
-            {/* Manual Distributor Input */}
-            {selectedDistributor === '__other__' && (
+            <Field name="category">
               <Form.Item
-                label={<span className="font-semibold text-slate-700">Nama Distributor Manual</span>}
+                label={<span className="font-semibold text-slate-700">Request Category</span>}
                 required
-                validateStatus={errors.distributorManual ? 'error' : ''}
-                help={errors.distributorManual?.message}
+                validateStatus={errors.category ? 'error' : ''}
+                help={errors.category?.message}
               >
                 <Controller
-                  name="distributorManual"
+                  name="category"
                   control={control}
                   render={({ field }) => (
-                    <Input size="large" placeholder="Nama distributor manual" {...field} />
+                    <Segmented
+                      size="large"
+                      options={['Barcode', 'Android', 'Server']}
+                      value={field.value}
+                      onChange={(val) => {
+                        field.onChange(val)
+                        setValue('outlet', '')
+                      }}
+                      className="bg-slate-100 p-1"
+                    />
                   )}
                 />
               </Form.Item>
+            </Field>
+
+            {/* Distributor */}
+            <Field name="distributor">
+              <Form.Item
+                label={<span className="font-semibold text-slate-700">Distributor</span>}
+                required
+                validateStatus={errors.distributor ? 'error' : ''}
+                help={errors.distributor?.message}
+              >
+                <Controller
+                  name="distributor"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      size="large"
+                      showSearch
+                      placeholder="Select distributor…"
+                      value={field.value || undefined}
+                      onChange={(val) => {
+                        field.onChange(val)
+                        setValue('outlet', '')
+                      }}
+                      options={[
+                        ...options.distributors.map((d) => ({ label: d.name, value: d.name })),
+                        { label: 'Lainnya (isi manual)', value: MANUAL_DISTRIBUTOR },
+                      ]}
+                    />
+                  )}
+                />
+              </Form.Item>
+            </Field>
+
+            {/* Manual Distributor Input */}
+            {selectedDistributor === MANUAL_DISTRIBUTOR && (
+              <Field name="distributorManual">
+                <Form.Item
+                  label={<span className="font-semibold text-slate-700">Nama Distributor Manual</span>}
+                  required
+                  validateStatus={errors.distributorManual ? 'error' : ''}
+                  help={errors.distributorManual?.message}
+                >
+                  <Controller
+                    name="distributorManual"
+                    control={control}
+                    render={({ field }) => (
+                      <Input size="large" placeholder="Nama distributor manual" {...field} />
+                    )}
+                  />
+                </Form.Item>
+              </Field>
             )}
 
             {/* Outlet */}
-            <Form.Item
-              label={<span className="font-semibold text-slate-700">Outlet</span>}
-              required
-              validateStatus={errors.outlet ? 'error' : ''}
-              help={errors.outlet?.message}
-            >
-              <Controller
-                name="outlet"
-                control={control}
-                render={({ field }) =>
-                  selectedDistributor === '__other__' ? (
-                    <Input size="large" placeholder="Nama outlet" {...field} />
-                  ) : (
+            <Field name="outlet">
+              <Form.Item
+                label={<span className="font-semibold text-slate-700">Outlet</span>}
+                required
+                validateStatus={errors.outlet ? 'error' : ''}
+                help={errors.outlet?.message}
+              >
+                <Controller
+                  name="outlet"
+                  control={control}
+                  render={({ field }) => (
                     <Select
                       size="large"
                       showSearch
@@ -251,142 +330,147 @@ export default function NewRequestForm() {
                       placeholder={selectedDistributor ? 'Pilih outlet…' : 'Pilih distributor dulu…'}
                       value={field.value || undefined}
                       onChange={field.onChange}
-                      options={availableOutlets.map((o) => ({ label: o, value: o }))}
-                    />
-                  )
-                }
-              />
-            </Form.Item>
-
-            {/* Sales Division */}
-            <Form.Item
-              label={<span className="font-semibold text-slate-700">Sales Division</span>}
-              required
-              validateStatus={errors.salesDivision ? 'error' : ''}
-              help={errors.salesDivision?.message}
-            >
-              <Controller
-                name="salesDivision"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    size="large"
-                    placeholder="Select division…"
-                    value={field.value || undefined}
-                    onChange={field.onChange}
-                    options={SALES_DIVISIONS.map((div) => ({ label: div, value: div }))}
-                  />
-                )}
-              />
-            </Form.Item>
-
-            {/* Request Type (if Android) */}
-            {selectedCategory === 'Android' && (
-              <Form.Item
-                label={<span className="font-semibold text-slate-700">Request Type</span>}
-                required
-                validateStatus={errors.reqType ? 'error' : ''}
-                help={errors.reqType?.message}
-              >
-                <Controller
-                  name="reqType"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      size="large"
-                      placeholder="Select type…"
-                      value={field.value || undefined}
-                      onChange={field.onChange}
-                      options={REQ_TYPES.map((t) => ({ label: t, value: t }))}
+                      options={availableOutlets.map((o) => ({ label: o.name, value: o.name }))}
                     />
                   )}
                 />
               </Form.Item>
+            </Field>
+
+            {/* Sales Division */}
+            <Field name="salesDivision">
+              <Form.Item
+                label={<span className="font-semibold text-slate-700">Sales Division</span>}
+                required
+                validateStatus={errors.salesDivision ? 'error' : ''}
+                help={errors.salesDivision?.message}
+              >
+                <Controller
+                  name="salesDivision"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      size="large"
+                      placeholder="Select division…"
+                      value={field.value || undefined}
+                      onChange={field.onChange}
+                      options={options.salesDivisions.map((div) => ({ label: div, value: div }))}
+                    />
+                  )}
+                />
+              </Form.Item>
+            </Field>
+
+            {/* Request Type (if Android) */}
+            {selectedCategory === 'Android' && (
+              <Field name="reqType">
+                <Form.Item
+                  label={<span className="font-semibold text-slate-700">Request Type</span>}
+                  required
+                  validateStatus={errors.reqType ? 'error' : ''}
+                  help={errors.reqType?.message}
+                >
+                  <Controller
+                    name="reqType"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        size="large"
+                        placeholder="Select type…"
+                        value={field.value || undefined}
+                        onChange={field.onChange}
+                        options={options.requestTypes.map((t) => ({ label: t, value: t }))}
+                      />
+                    )}
+                  />
+                </Form.Item>
+              </Field>
             )}
 
             {/* Requester Role & Name */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Form.Item
-                label={<span className="font-semibold text-slate-700">Requester Role</span>}
-                required
-                validateStatus={errors.requesterRole ? 'error' : ''}
-                help={errors.requesterRole?.message}
-              >
-                <Controller
-                  name="requesterRole"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      size="large"
-                      value={field.value}
-                      onChange={field.onChange}
-                      options={(REQUESTER_ROLES_BY_CATEGORY[selectedCategory] || []).map((r) => ({
-                        label: ROLE_LABELS[r] || r,
-                        value: r,
-                      }))}
-                    />
-                  )}
-                />
-              </Form.Item>
+              <Field name="requesterRole">
+                <Form.Item
+                  label={<span className="font-semibold text-slate-700">Requester Role</span>}
+                  required
+                  validateStatus={errors.requesterRole ? 'error' : ''}
+                  help={errors.requesterRole?.message}
+                >
+                  <Controller
+                    name="requesterRole"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        size="large"
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={roleOptions.map((r) => ({ label: r.label, value: r.code }))}
+                      />
+                    )}
+                  />
+                </Form.Item>
+              </Field>
 
-              <Form.Item
-                label={<span className="font-semibold text-slate-700">Requester Name</span>}
-                required
-                validateStatus={errors.requesterName ? 'error' : ''}
-                help={errors.requesterName?.message}
-              >
-                <Controller
-                  name="requesterName"
-                  control={control}
-                  render={({ field }) => (
-                    <Input size="large" placeholder="Nama requester" {...field} />
-                  )}
-                />
-              </Form.Item>
+              <Field name="requesterName">
+                <Form.Item
+                  label={<span className="font-semibold text-slate-700">Requester Name</span>}
+                  required
+                  validateStatus={errors.requesterName ? 'error' : ''}
+                  help={errors.requesterName?.message}
+                >
+                  <Controller
+                    name="requesterName"
+                    control={control}
+                    render={({ field }) => (
+                      <Input size="large" placeholder="Nama requester" {...field} />
+                    )}
+                  />
+                </Form.Item>
+              </Field>
             </div>
 
             {/* Quantity & Priority */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Form.Item
-                label={<span className="font-semibold text-slate-700">Quantity (pcs)</span>}
-                required
-                validateStatus={errors.qty ? 'error' : ''}
-                help={errors.qty?.message}
-              >
-                <Controller
-                  name="qty"
-                  control={control}
-                  render={({ field }) => (
-                    <InputNumber
-                      size="large"
-                      min={1}
-                      className="w-full font-mono"
-                      placeholder="e.g. 5"
-                      value={field.value}
-                      onChange={(val) => field.onChange(val || 1)}
-                    />
-                  )}
-                />
-              </Form.Item>
+              <Field name="qty">
+                <Form.Item
+                  label={<span className="font-semibold text-slate-700">Quantity (pcs)</span>}
+                  required
+                  validateStatus={errors.qty ? 'error' : ''}
+                  help={errors.qty?.message}
+                >
+                  <Controller
+                    name="qty"
+                    control={control}
+                    render={({ field }) => (
+                      <InputNumber
+                        size="large"
+                        min={1}
+                        className="w-full font-mono"
+                        placeholder="e.g. 5"
+                        value={field.value}
+                        onChange={(val) => field.onChange(val || 1)}
+                      />
+                    )}
+                  />
+                </Form.Item>
+              </Field>
 
-              <Form.Item label={<span className="font-semibold text-slate-700">Priority</span>}>
-                <Controller
-                  name="priority"
-                  control={control}
-                  render={({ field }) => (
-                    <Segmented
-                      size="large"
-                      options={[
-                        { label: 'Normal', value: 'normal' },
-                        { label: 'High', value: 'high' },
-                        { label: 'Urgent', value: 'urgent' },
-                      ]}
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  )}
-                />
-              </Form.Item>
+              <Field name="priority">
+                <Form.Item label={<span className="font-semibold text-slate-700">Priority</span>}>
+                  <Controller
+                    name="priority"
+                    control={control}
+                    render={({ field }) => (
+                      <Segmented
+                        size="large"
+                        options={options.priorities.map((p) => ({ label: priorityLabel(p), value: p }))}
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    )}
+                  />
+                </Form.Item>
+              </Field>
             </div>
 
             {/* Form Actions */}

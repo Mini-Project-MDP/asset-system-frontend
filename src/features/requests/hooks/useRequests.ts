@@ -11,6 +11,15 @@ export const useGetRequests = (filters: RequestFilter = {}) => {
   })
 }
 
+/** What the New Request form offers (distributors, outlets, divisions, roles). */
+export const useRequestFormOptions = () => {
+  return useQuery({
+    queryKey: ['requests', 'form-options'],
+    queryFn: requestService.getFormOptions,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 export const useGetRequestDetail = (id: string) => {
   return useQuery({
     queryKey: ['request', id],
