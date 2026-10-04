@@ -12,6 +12,21 @@ export interface BarcodeFulfillmentInput {
   codes: string[]
 }
 
+export interface PhoneModel {
+  id: string
+  brand_id: string
+  name: string
+  is_active: boolean
+}
+
+/** A phone brand and its models, as offered in the Android fulfillment form. */
+export interface PhoneBrand {
+  id: string
+  name: string
+  is_active: boolean
+  models: PhoneModel[]
+}
+
 export interface AndroidUnitInput {
   imei: string
   brand: string

@@ -1,10 +1,7 @@
 import { httpClient } from '@/shared/services/httpClient'
 import type { RequestDetailItem } from '@/features/requests/types'
 import { FULFILL_STAGES } from '@/features/requests/services/requestService'
-import type { FulfillmentFilter, FulfillmentOverview } from '../types'
-
-export const PHONE_BRANDS = ['Samsung', 'Xiaomi', 'Oppo', 'Vivo', 'Realme']
-export const PHONE_MODELS = ['A-series', 'Galaxy Tab', 'Redmi Note', 'Standard', 'Enterprise']
+import type { FulfillmentFilter, FulfillmentOverview, PhoneBrand } from '../types'
 
 export const LOOKUP_IMEIS: Record<string, { brand: string; model: string; releaseYear: string }> = {
   '354892019283741': { brand: 'Samsung', model: 'Galaxy Tab', releaseYear: '2023' },
@@ -17,6 +14,11 @@ export function lookupImei(imei: string) {
 }
 
 export const fulfillmentService = {
+  getPhoneCatalog: async (): Promise<PhoneBrand[]> => {
+    const response = await httpClient.get<PhoneBrand[]>('/api/v1/fulfillment/phone-catalog')
+    return response.data
+  },
+
   getFulfillmentItems: async (filter: FulfillmentFilter = {}): Promise<FulfillmentOverview> => {
     const response = await httpClient.get<RequestDetailItem[]>('/api/v1/fulfillment', {
       params: filter,

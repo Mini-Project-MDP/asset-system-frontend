@@ -9,6 +9,14 @@ export function useGetFulfillmentItems(filter: FulfillmentFilter = {}) {
   })
 }
 
+export function useGetPhoneCatalog() {
+  return useQuery({
+    queryKey: ['phoneCatalog'],
+    queryFn: fulfillmentService.getPhoneCatalog,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 export function useGetFulfillmentDetail(id: string) {
   return useQuery({
     queryKey: ['fulfillmentDetail', id],

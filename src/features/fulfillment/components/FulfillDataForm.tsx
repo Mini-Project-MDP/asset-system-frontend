@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Input, Select, message } from 'antd'
 import { CheckOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons'
-import {
-  PHONE_BRANDS,
-  PHONE_MODELS,
-  lookupImei,
-} from '../services/fulfillmentService'
+import { lookupImei } from '../services/fulfillmentService'
+import { useGetPhoneCatalog } from '../hooks/useFulfillment'
 import type { CategoryType } from '@/features/requests/types'
 
 interface AndroidUnitState {
@@ -86,6 +83,12 @@ export default function FulfillDataForm({ category, qty, onSave }: FulfillDataFo
   const [barcodes, setBarcodes] = useState<string[]>([])
   const [androidUnits, setAndroidUnits] = useState<AndroidUnitState[]>([])
   const [specsText, setSpecsText] = useState('')
+  const { data: phoneCatalog = [] } = useGetPhoneCatalog()
+
+  // Models on offer depend on the chosen brand; a manual ("Lainnya") or unknown
+  // brand has no catalog models, so only the manual option is left.
+  const modelsForBrand = (brandName: string) =>
+    phoneCatalog.find((b) => b.name === brandName)?.models ?? []
 
   useEffect(() => {
     if (category === 'Barcode') {
@@ -370,12 +373,16 @@ export default function FulfillDataForm({ category, qty, onSave }: FulfillDataFo
                       onChange={(val) => {
                         setAndroidUnits((prev) => {
                           const next = [...prev]
-                          next[i] = { ...next[i], brand: val }
+                          const brandChanged = next[i].brand !== val
+                          // A model belongs to one brand, so changing the brand clears it.
+                          next[i] = brandChanged
+                            ? { ...next[i], brand: val, model: '', modelManual: '' }
+                            : next[i]
                           return next
                         })
                       }}
                       options={[
-                        ...PHONE_BRANDS.map((b) => ({ label: b, value: b })),
+                        ...phoneCatalog.map((b) => ({ label: b.name, value: b.name })),
                         { label: 'Lainnya', value: '__other__' },
                       ]}
                       className="w-full text-xs"
@@ -394,7 +401,7 @@ export default function FulfillDataForm({ category, qty, onSave }: FulfillDataFo
                         })
                       }}
                       options={[
-                        ...PHONE_MODELS.map((m) => ({ label: m, value: m })),
+                        ...modelsForBrand(u.brand).map((m) => ({ label: m.name, value: m.name })),
                         { label: 'Lainnya', value: '__other__' },
                       ]}
                       className="w-full text-xs"

@@ -20,14 +20,31 @@ import {
   UserOutlined,
   SafetyCertificateOutlined,
   PlusOutlined,
+  UserAddOutlined,
   EditOutlined,
   KeyOutlined,
 } from '@ant-design/icons'
 import { httpClient } from '@/shared/services/httpClient'
+import { getApiErrorMessage } from '@/shared/utils/apiError'
 import type { UserProfile, Role, Permission } from '@/shared/types/auth'
 import { useAuth } from '@/shared/context/AuthContext'
 
 const { Title, Text } = Typography
+
+/** The 8 login roles a user may hold. Other seeded roles (e.g. "Cabang") are not assignable. */
+const ASSIGNABLE_ROLE_CODES = ['MASTER_ADMIN', 'ASSET_MANAGER', 'SA', 'SS', 'RSM', 'GRSM', 'NSM', 'SD']
+
+interface UserFormValues {
+  name: string
+  email: string
+  employee_no?: string
+  password?: string
+  role_id: string
+  is_active?: boolean
+}
+
+/** `null` = closed, `{ user: null }` = adding, `{ user }` = editing that user. */
+type UserModalState = { user: UserProfile | null } | null
 
 export const RoleManagement: React.FC = () => {
   const { user: currentUser, refetchUser } = useAuth()
@@ -38,12 +55,16 @@ export const RoleManagement: React.FC = () => {
 
   // Modals
   const [createRoleOpen, setCreateRoleOpen] = useState(false)
-  const [assignRoleUser, setAssignRoleUser] = useState<UserProfile | null>(null)
+  const [userModal, setUserModal] = useState<UserModalState>(null)
+  const [savingUser, setSavingUser] = useState(false)
   const [assignPermRole, setAssignPermRole] = useState<Role | null>(null)
-  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([])
   const [selectedPermIds, setSelectedPermIds] = useState<string[]>([])
 
   const [roleForm] = Form.useForm()
+  const [userForm] = Form.useForm<UserFormValues>()
+
+  const assignableRoles = roles.filter((r) => ASSIGNABLE_ROLE_CODES.includes(r.code))
+  const editingUser = userModal?.user ?? null
 
   const fetchData = async () => {
     setLoading(true)
@@ -82,18 +103,54 @@ export const RoleManagement: React.FC = () => {
     }
   }
 
-  // Assign Roles to User
-  const handleSaveUserRoles = async () => {
-    if (!assignRoleUser) return
+  const openAddUser = () => {
+    userForm.resetFields()
+    setUserModal({ user: null })
+  }
+
+  const openEditUser = (user: UserProfile) => {
+    userForm.setFieldsValue({
+      name: user.name,
+      email: user.email,
+      employee_no: user.employee_no,
+      role_id: user.roles?.[0]?.id,
+      is_active: user.status === 'ACTIVE',
+    })
+    setUserModal({ user })
+  }
+
+  // Create or update a user (each user holds exactly one role)
+  const handleSaveUser = async (values: UserFormValues) => {
+    setSavingUser(true)
     try {
-      await httpClient.post(`/api/v1/users/${assignRoleUser.id}/roles`, {
-        role_ids: selectedRoleIds,
-      })
-      message.success(`Roles assigned to ${assignRoleUser.name}`)
-      setAssignRoleUser(null)
+      if (editingUser) {
+        await httpClient.put(`/api/v1/users/${editingUser.id}`, {
+          name: values.name,
+          email: values.email,
+          employee_no: values.employee_no,
+          role_id: values.role_id,
+          is_active: values.is_active,
+        })
+        message.success(`User ${values.name} berhasil diperbarui`)
+        if (editingUser.id === currentUser?.id) {
+          refetchUser()
+        }
+      } else {
+        await httpClient.post('/api/v1/users', {
+          name: values.name,
+          email: values.email,
+          employee_no: values.employee_no || undefined,
+          password: values.password || undefined,
+          role_id: values.role_id,
+        })
+        message.success(`User ${values.name} berhasil ditambahkan`)
+      }
+      setUserModal(null)
       fetchData()
-    } catch (err: any) {
-      message.error(err.response?.data?.error || 'Failed to assign roles')
+    } catch (err) {
+      message.error(getApiErrorMessage(err, 'Gagal menyimpan user'))
+    } finally {
+      setSavingUser(false)
     }
   }
 
@@ -151,7 +208,7 @@ export const RoleManagement: React.FC = () => {
       render: (val: string) => <span className="font-mono text-xs">{val}</span>,
     },
     {
-      title: 'Assigned Roles',
+      title: 'Role',
       dataIndex: 'roles',
       key: 'roles',
       render: (userRoles: Role[]) => (
@@ -166,6 +223,16 @@ export const RoleManagement: React.FC = () => {
             <Tag color="default">No Role Assigned</Tag>
           )}
         </Space>
+      ),
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => (
+        <Tag color={status === 'ACTIVE' ? 'green' : 'default'}>
+          {status === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
+        </Tag>
       ),
     },
     {
@@ -186,15 +253,8 @@ export const RoleManagement: React.FC = () => {
       title: 'Actions',
       key: 'actions',
       render: (_: any, record: UserProfile) => (
-        <Button
-          size="small"
-          icon={<EditOutlined />}
-          onClick={() => {
-            setAssignRoleUser(record)
-            setSelectedRoleIds(record.roles?.map((r) => r.id) || [])
-          }}
-        >
-          Assign Roles
+        <Button size="small" icon={<EditOutlined />} onClick={() => openEditUser(record)}>
+          Edit
         </Button>
       ),
     },
@@ -265,14 +325,14 @@ export const RoleManagement: React.FC = () => {
             Manage user accounts, assign roles, configure permissions, and designate Master Users.
           </Text>
         </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setCreateRoleOpen(true)}
-          className="bg-blue-600"
-        >
-          Add New Role
-        </Button>
+        <Space>
+          <Button type="primary" icon={<UserAddOutlined />} onClick={openAddUser} className="bg-blue-600">
+            Add User
+          </Button>
+          <Button icon={<PlusOutlined />} onClick={() => setCreateRoleOpen(true)}>
+            Add New Role
+          </Button>
+        </Space>
       </div>
 
       <Tabs
@@ -354,24 +414,75 @@ export const RoleManagement: React.FC = () => {
         </Form>
       </Modal>
 
-      {/* Modal: Assign Roles to User */}
+      {/* Modal: Add / Edit User */}
       <Modal
-        title={`Assign Roles to ${assignRoleUser?.name}`}
-        open={!!assignRoleUser}
-        onCancel={() => setAssignRoleUser(null)}
-        onOk={handleSaveUserRoles}
+        title={editingUser ? `Edit User — ${editingUser.name}` : 'Add New User'}
+        open={!!userModal}
+        onCancel={() => setUserModal(null)}
+        onOk={() => userForm.submit()}
+        okText={editingUser ? 'Simpan' : 'Tambah'}
+        cancelText="Batal"
+        confirmLoading={savingUser}
+        destroyOnHidden
       >
-        <div className="mb-4 text-xs text-slate-500">
-          Select one or more roles to assign to this user account:
-        </div>
-        <Select
-          mode="multiple"
-          className="w-full"
-          placeholder="Select roles"
-          value={selectedRoleIds}
-          onChange={setSelectedRoleIds}
-          options={roles.map((r) => ({ value: r.id, label: `${r.name} (${r.code})` }))}
-        />
+        <Form form={userForm} layout="vertical" onFinish={handleSaveUser} className="mt-4">
+          <Form.Item
+            name="name"
+            label="Nama"
+            rules={[{ required: true, whitespace: true, message: 'Nama wajib diisi' }]}
+          >
+            <Input placeholder="Mis. Laras Putri" />
+          </Form.Item>
+          <Form.Item
+            name="email"
+            label="Email"
+            rules={[
+              { required: true, message: 'Email wajib diisi' },
+              { type: 'email', message: 'Format email tidak valid' },
+            ]}
+          >
+            <Input placeholder="nama@company.co" />
+          </Form.Item>
+          <Form.Item
+            name="employee_no"
+            label="Employee No"
+            extra={editingUser ? undefined : 'Opsional. Jika kosong, email dipakai sebagai nomor karyawan.'}
+          >
+            <Input placeholder="Mis. EMP100" />
+          </Form.Item>
+          {!editingUser && (
+            <Form.Item
+              name="password"
+              label="Password"
+              extra="Opsional. Kosongkan jika user masuk lewat SSO."
+              rules={[{ min: 8, message: 'Password minimal 8 karakter' }]}
+            >
+              <Input.Password autoComplete="new-password" />
+            </Form.Item>
+          )}
+          <Form.Item
+            name="role_id"
+            label="Role"
+            extra="Setiap user hanya memiliki satu role."
+            rules={[{ required: true, message: 'Role wajib dipilih' }]}
+          >
+            <Select
+              placeholder="Pilih role"
+              optionFilterProp="label"
+              options={assignableRoles.map((r) => ({ value: r.id, label: `${r.name} (${r.code})` }))}
+            />
+          </Form.Item>
+          {editingUser && (
+            <Form.Item
+              name="is_active"
+              label="Status"
+              valuePropName="checked"
+              extra="Admin terakhir yang aktif tidak dapat dinonaktifkan atau diganti rolenya."
+            >
+              <Switch checkedChildren="Aktif" unCheckedChildren="Nonaktif" />
+            </Form.Item>
+          )}
+        </Form>
       </Modal>
 
       {/* Modal: Assign Permissions to Role */}
