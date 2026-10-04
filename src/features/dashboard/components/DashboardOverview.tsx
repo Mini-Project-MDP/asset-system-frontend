@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { getApiErrorMessage } from '@/shared/utils/apiError'
 import { useGetDashboardOverview } from '../hooks/useDashboard'
 import StatCard from './StatCard'
 import RequestsChart from './RequestsChart'
@@ -5,7 +7,8 @@ import RecentActivityList from './RecentActivityList'
 import RequestsNeedingAttentionTable from './RequestsNeedingAttentionTable'
 
 export default function DashboardOverview() {
-  const { data, isLoading, isError, error } = useGetDashboardOverview()
+  const [year, setYear] = useState<number | undefined>(undefined)
+  const { data, isLoading, isError, error } = useGetDashboardOverview(year)
 
   if (isLoading) {
     return (
@@ -20,7 +23,7 @@ export default function DashboardOverview() {
       <div className="card card-pad" style={{ borderColor: 'var(--stop-line)', background: 'var(--stop-050)' }}>
         <b style={{ color: 'var(--stop)' }}>Gagal Memuat Data</b>
         <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '4px' }}>
-          {error?.message || 'Terjadi kesalahan saat memuat data dashboard.'}
+          {getApiErrorMessage(error, 'Terjadi kesalahan saat memuat data dashboard.')}
         </p>
       </div>
     )
@@ -48,7 +51,7 @@ export default function DashboardOverview() {
 
       {/* Grid: Chart & Activity Feed */}
       <div className="grid-2">
-        <RequestsChart data={data.chartData} />
+        <RequestsChart data={data.chartData} year={data.year} onYearChange={setYear} />
         <RecentActivityList activities={data.activities} />
       </div>
 

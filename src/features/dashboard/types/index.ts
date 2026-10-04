@@ -44,6 +44,8 @@ export interface AttentionRequestItem {
 }
 
 export interface DashboardOverviewResponse {
+  /** The year the chart covers (the API default is the current year). */
+  year: number
   stats: StatCardData[]
   chartData: MonthlyRequestData[]
   activities: ActivityLog[]

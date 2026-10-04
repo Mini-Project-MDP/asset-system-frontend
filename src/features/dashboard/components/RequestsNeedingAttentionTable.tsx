@@ -90,7 +90,7 @@ export default function RequestsNeedingAttentionTable({
               <tr
                 key={r.id}
                 className="clickable"
-                onClick={() => navigate(`/requests?id=${r.id}`)}
+                onClick={() => navigate(`/requests/${r.id}`)}
               >
                 <td className="id">{r.id}</td>
                 <td>{r.type}</td>

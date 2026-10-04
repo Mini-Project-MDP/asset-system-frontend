@@ -66,7 +66,7 @@ export default function StatCard({ data }: StatCardProps) {
         </span>
         {data.title}
       </div>
-      <div className="v">{data.value}</div>
+      <div className="v">{typeof data.value === 'number' ? data.value.toLocaleString('id-ID') : data.value}</div>
       <div className="sub">{data.subtitle}</div>
     </div>
   )

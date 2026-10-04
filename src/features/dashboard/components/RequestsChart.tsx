@@ -1,10 +1,22 @@
+import { Select } from 'antd'
 import type { MonthlyRequestData } from '../types'
 
 interface RequestsChartProps {
   data: MonthlyRequestData[]
+  /** The year the data covers. */
+  year: number
+  onYearChange: (year: number) => void
 }
 
-export default function RequestsChart({ data }: RequestsChartProps) {
+// How many years back the selector offers, counting the current one.
+const YEARS_OFFERED = 4
+
+export default function RequestsChart({ data, year, onYearChange }: RequestsChartProps) {
+  const currentYear = new Date().getFullYear()
+  const yearOptions = Array.from({ length: YEARS_OFFERED }, (_, i) => {
+    const y = currentYear - i
+    return { label: String(y), value: y }
+  })
   const maxVal = Math.max(
     ...data.flatMap((d) => [d.barcode, d.android, d.server]),
     1
@@ -31,10 +43,14 @@ export default function RequestsChart({ data }: RequestsChartProps) {
           </span>
         </div>
         <div className="r">
-          <span className="tag neutral">
-            <span className="dot" />
-            2026
-          </span>
+          <Select
+            size="small"
+            value={year}
+            options={yearOptions}
+            onChange={onYearChange}
+            style={{ width: 84 }}
+            aria-label="Tahun"
+          />
         </div>
       </div>
       <div className="card-pad">

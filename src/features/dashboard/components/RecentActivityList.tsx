@@ -4,6 +4,28 @@ interface RecentActivityListProps {
   activities: ActivityLog[]
 }
 
+/**
+ * Shows an activity title with the request ids set in monospace. Built from React
+ * nodes, not HTML: titles contain names that come from the database, so they must
+ * never be injected as markup.
+ */
+function ActivityTitle({ title }: { title: string }) {
+  // split() with a capture group puts the matched ids at the odd positions.
+  return (
+    <>
+      {title.split(/(REQ-[0-9A-Za-z]+)/g).map((part, i) =>
+        i % 2 === 1 ? (
+          <span key={i} className="mono">
+            {part}
+          </span>
+        ) : (
+          part
+        )
+      )}
+    </>
+  )
+}
+
 export default function RecentActivityList({ activities }: RecentActivityListProps) {
   const getIconAndColors = (type: ActivityLog['type']) => {
     switch (type) {
@@ -69,15 +91,9 @@ export default function RecentActivityList({ activities }: RecentActivityListPro
                 <span className="ic" style={{ background: bg, color: color }}>
                   {icon}
                 </span>
-                <span
-                  className="tx"
-                  dangerouslySetInnerHTML={{
-                    __html: act.title.replace(
-                      /(REQ-\d+|Laras P\.|Medan)/g,
-                      '<span class="mono">$1</span>'
-                    ),
-                  }}
-                />
+                <span className="tx">
+                  <ActivityTitle title={act.title} />
+                </span>
                 <span className="t">{act.timeAgo}</span>
               </div>
             )
