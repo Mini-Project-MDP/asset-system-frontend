@@ -84,6 +84,7 @@ function CsvUploader({
 
 export default function FulfillDataForm({ category, qty, onSave }: FulfillDataFormProps) {
   const [barcodes, setBarcodes] = useState<string[]>([])
+  const [serials, setSerials] = useState<string[]>([])
   const [androidUnits, setAndroidUnits] = useState<AndroidUnitState[]>([])
   const [specsText, setSpecsText] = useState('')
   const { data: phoneCatalog = [] } = useGetPhoneCatalog()
@@ -98,6 +99,8 @@ export default function FulfillDataForm({ category, qty, onSave }: FulfillDataFo
   useEffect(() => {
     if (category === 'Barcode') {
       setBarcodes(Array.from({ length: qty }, () => ''))
+    } else if (category === 'Mobile Printer') {
+      setSerials(Array.from({ length: qty }, () => ''))
     } else if (category === 'Android') {
       setAndroidUnits(
         Array.from({ length: qty }, () => ({
@@ -246,12 +249,66 @@ export default function FulfillDataForm({ category, qty, onSave }: FulfillDataFo
     onSave({ units: completeUnits })
   }
 
+  const handleSubmitPrinter = () => {
+    const filled = serials.map((s) => s.trim())
+    if (filled.some((s) => !s)) {
+      message.error(`Semua ${qty} nomor seri wajib diisi.`)
+      return
+    }
+    if (new Set(filled).size !== filled.length) {
+      message.error('Nomor seri tidak boleh sama.')
+      return
+    }
+    onSave({ serials: filled })
+  }
+
   const handleSubmitServer = () => {
     if (!specsText.trim()) {
       message.error('Spesifikasi server/PC wajib diisi.')
       return
     }
     onSave({ specs: specsText.trim() })
+  }
+
+  if (category === 'Mobile Printer') {
+    const filledCount = serials.filter((s) => s.trim()).length
+    return (
+      <div className="space-y-4">
+        <div className="field">
+          <label className="text-xs font-semibold block mb-1.5 text-slate-700">
+            Nomor Seri — <span className="font-mono text-rose-600">{filledCount}</span>/{qty} terisi{' '}
+            <span className="text-rose-600">*</span>
+          </label>
+          <div
+            className="space-y-2 p-3 bg-slate-50 rounded-lg border border-slate-200"
+            style={{ maxHeight: '260px', overflowY: 'auto' }}
+          >
+            {serials.map((serial, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <span className="font-mono text-xs text-slate-400 w-6 text-right flex-none">{idx + 1}</span>
+                <Input
+                  placeholder="Nomor seri printer"
+                  value={serial}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setSerials((prev) => {
+                      const next = [...prev]
+                      next[idx] = val
+                      return next
+                    })
+                  }}
+                  className="font-mono text-xs"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button type="button" className="btn btn-go" style={{ width: '100%' }} onClick={handleSubmitPrinter}>
+          <CheckOutlined /> Save & Advance to Shipped
+        </button>
+      </div>
+    )
   }
 
   if (category === 'Barcode') {

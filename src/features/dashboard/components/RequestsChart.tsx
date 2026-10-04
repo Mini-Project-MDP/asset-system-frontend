@@ -18,7 +18,7 @@ export default function RequestsChart({ data, year, onYearChange }: RequestsChar
     return { label: String(y), value: y }
   })
   const maxVal = Math.max(
-    ...data.flatMap((d) => [d.barcode, d.android, d.server]),
+    ...data.flatMap((d) => [d.barcode, d.android, d.server, d.mobilePrinter]),
     1
   )
   const niceMax = Math.ceil(maxVal / 4) * 4 || 4
@@ -40,6 +40,10 @@ export default function RequestsChart({ data, year, onYearChange }: RequestsChar
           <span className="li">
             <i style={{ background: 'var(--warn)' }} />
             Server
+          </span>
+          <span className="li">
+            <i style={{ background: '#6366f1' }} />
+            Mobile Printer
           </span>
         </div>
         <div className="r">
@@ -87,6 +91,14 @@ export default function RequestsChart({ data, year, onYearChange }: RequestsChar
                         className="b server"
                         style={{ height: `${Math.round((d.server / niceMax) * 100)}%` }}
                         title={`Server: ${d.server}`}
+                      />
+                    </div>
+                    <div className="bwrap">
+                      <span className="val">{d.mobilePrinter}</span>
+                      <div
+                        className="b printer"
+                        style={{ height: `${Math.round((d.mobilePrinter / niceMax) * 100)}%` }}
+                        title={`Mobile Printer: ${d.mobilePrinter}`}
                       />
                     </div>
                   </div>

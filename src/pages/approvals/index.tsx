@@ -121,6 +121,7 @@ export default function ApprovalsPage() {
               { label: 'Barcode', value: 'Barcode' },
               { label: 'Android', value: 'Android' },
               { label: 'Server', value: 'Server' },
+              { label: 'Mobile Printer', value: 'Mobile Printer' },
             ]}
           />
         </div>

@@ -276,9 +276,27 @@ export default function RequestDetail() {
               },
               {
                 key: 'qty',
-                label: 'Quantity',
+                label: request.breakdown?.length ? 'Total Request' : 'Quantity',
                 children: <Text className="font-mono font-bold">{request.qty} pcs</Text>,
               },
+              ...(request.breakdown?.length
+                ? [
+                    {
+                      key: 'breakdown',
+                      label: 'Tipe Pengajuan',
+                      children: (
+                        <span className="flex flex-wrap gap-1.5">
+                          {request.breakdown.map((b) => (
+                            <span key={b.type} className="tag neutral">
+                              <span className="dot" />
+                              {b.type === 'NOO' ? 'NOO (outlet baru)' : b.type}: <b className="font-mono">{b.qty}</b>
+                            </span>
+                          ))}
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
               {
                 key: 'priority',
                 label: 'Priority',

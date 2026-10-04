@@ -26,6 +26,24 @@ export default function FulfillDataSummary({ category, fulfillData }: FulfillDat
     )
   }
 
+  if (category === 'Mobile Printer' && Array.isArray(fulfillData.serials)) {
+    return (
+      <div className="mt5" style={{ borderTop: '1px solid var(--line)', paddingTop: '20px' }}>
+        <div className="eyebrow" style={{ marginBottom: '12px' }}>
+          Nomor seri tercatat ({fulfillData.serials.length} pcs)
+        </div>
+        <div
+          className="mono"
+          style={{ fontSize: '12.5px', lineHeight: '1.9', maxHeight: '160px', overflowY: 'auto' }}
+        >
+          {fulfillData.serials.map((serial: string, idx: number) => (
+            <div key={idx}>{serial}</div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   if (category === 'Android' && Array.isArray(fulfillData.units)) {
     return (
       <div className="mt5" style={{ borderTop: '1px solid var(--line)', paddingTop: '20px' }}>

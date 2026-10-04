@@ -22,6 +22,8 @@ export const CATEGORY_HIERARCHY: Record<CategoryType, string[]> = {
   Barcode: ['SA', 'SS', 'RSM', 'GRSM', 'NSM', 'SD'],
   Android: ['Cabang', 'GRSM', 'NSM', 'SD'],
   Server: ['Cabang', 'GRSM', 'NSM', 'SD'],
+  // Until the business fixes it, Mobile Printer follows Server.
+  'Mobile Printer': ['Cabang', 'GRSM', 'NSM', 'SD'],
 }
 
 export const FULFILL_STAGES = ['Processing', 'Shipped', 'Delivered']
@@ -66,6 +68,8 @@ export const requestService = {
       ...input,
       distributor: isManual ? '' : input.distributor,
       distributorManual: isManual ? (input.distributorManual ?? '').trim() : '',
+      // Only a Barcode request is counted by reason; nothing is sent for the others.
+      breakdown: input.category === 'Barcode' ? (input.breakdown ?? []).filter((b) => b.qty > 0) : [],
       revisedFromId: input.revisedFromId || undefined,
     }
 

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export type CategoryType = 'Barcode' | 'Android' | 'Server'
+export type CategoryType = 'Barcode' | 'Android' | 'Server' | 'Mobile Printer'
 export type PriorityType = 'normal' | 'high' | 'urgent'
 export type StepStatus = 'approved' | 'current' | 'pending' | 'rejected' | 'revision'
 
@@ -16,6 +16,12 @@ export interface HistoryItem {
   date: string
   type: 'go' | 'warn' | 'stop'
   comment?: string | null
+}
+
+/** How many units of a Barcode request are for one Tipe Pengajuan. */
+export interface BreakdownItem {
+  type: string
+  qty: number
 }
 
 export interface RequestDetailItem {
@@ -40,6 +46,8 @@ export interface RequestDetailItem {
   fulfillStep?: number
   fulfillData?: Record<string, unknown> | null
   revisedFromId?: string | null
+  /** Count per Tipe Pengajuan (Barcode requests made after the field was introduced). */
+  breakdown?: BreakdownItem[]
   approvalStatus?: string
   currentStepName?: string | null
 }
@@ -74,6 +82,8 @@ export interface RequestFormOptions {
   outlets: FormOutletRef[]
   salesDivisions: string[]
   requestTypes: string[]
+  /** The Tipe Pengajuan choices of a Barcode request. */
+  barcodeKinds: string[]
   priorities: PriorityType[]
   requesterRoles: Record<string, RequesterRoleOption[]>
 }
@@ -85,7 +95,7 @@ export const MANUAL_DISTRIBUTOR = '__other__'
 // the same rules again (and against master data), so these only give quick feedback.
 export const createRequestSchema = z
   .object({
-    category: z.enum(['Barcode', 'Android', 'Server']),
+    category: z.enum(['Barcode', 'Android', 'Server', 'Mobile Printer']),
     distributor: z.string().min(1, 'Distributor wajib diisi.'),
     distributorManual: z.string().optional(),
     outlet: z.string().min(1, 'Outlet wajib dipilih.'),
@@ -94,12 +104,17 @@ export const createRequestSchema = z
     requesterRole: z.string().min(1, 'Requester Role wajib dipilih.'),
     requesterName: z.string().trim().min(1, 'Nama requester wajib diisi.'),
     qty: z.number().int('Quantity harus bilangan bulat.').min(1, 'Quantity minimal 1.'),
+    // Barcode only: units per Tipe Pengajuan. The total (qty) is their sum.
+    breakdown: z.array(z.object({ type: z.string(), qty: z.number().int().min(0) })).optional(),
     priority: z.enum(['normal', 'high', 'urgent']),
     revisedFromId: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.category === 'Android' && !data.reqType) {
       ctx.addIssue({ code: 'custom', message: 'Request Type wajib dipilih untuk kategori Android.', path: ['reqType'] })
+    }
+    if (data.category === 'Barcode' && !(data.breakdown ?? []).some((b) => b.qty > 0)) {
+      ctx.addIssue({ code: 'custom', message: 'Isi jumlah untuk minimal satu Tipe Pengajuan.', path: ['breakdown'] })
     }
     if (data.distributor === MANUAL_DISTRIBUTOR && !data.distributorManual?.trim()) {
       ctx.addIssue({ code: 'custom', message: 'Nama distributor wajib diisi.', path: ['distributorManual'] })

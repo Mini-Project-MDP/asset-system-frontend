@@ -11,6 +11,7 @@ export interface MonthlyRequestData {
   barcode: number
   android: number
   server: number
+  mobilePrinter: number
 }
 
 export interface ActivityLog {

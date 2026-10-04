@@ -41,6 +41,7 @@ const FIELD_ORDER: (keyof CreateRequestFormInput)[] = [
   'reqType',
   'requesterRole',
   'requesterName',
+  'breakdown',
   'qty',
   'priority',
 ]
@@ -57,6 +58,8 @@ function focusField(name: string) {
 function Field({ name, children }: { name: string; children: React.ReactNode }) {
   return <div id={`field-${name}`}>{children}</div>
 }
+
+const kindLabel = (kind: string) => (kind === 'NOO' ? 'NOO (outlet baru)' : kind)
 
 const priorityLabel = (p: string) => p.charAt(0).toUpperCase() + p.slice(1)
 
@@ -99,13 +102,21 @@ function NewRequestFormBody({ options }: { options: RequestFormOptions }) {
   const { mutateAsync: createRequest, isPending } = useCreateRequest()
   const [submitError, setSubmitError] = useState<string | null>(null)
 
+  // Barcode: units per Tipe Pengajuan. Their sum is the request's quantity.
+  const [kindCounts, setKindCounts] = useState<Record<string, number>>(() =>
+    Object.fromEntries(
+      options.barcodeKinds.map((kind) => [kind, prefill?.breakdown?.find((b) => b.type === kind)?.qty ?? 0])
+    )
+  )
+  const kindTotal = Object.values(kindCounts).reduce((sum, n) => sum + n, 0)
+
   const {
     handleSubmit,
     watch,
     setValue,
     setError,
     control,
-    formState: { errors },
+    formState: { errors, isSubmitted },
   } = useForm<CreateRequestFormInput>({
     resolver: zodResolver(createRequestSchema),
     // Focus is decided by onInvalid, in the order of the form: RHF's own pick would be
@@ -120,7 +131,8 @@ function NewRequestFormBody({ options }: { options: RequestFormOptions }) {
       reqType: prefill?.reqType || '',
       requesterRole: prefill?.byRole || 'SA',
       requesterName: prefill?.by || '',
-      qty: prefill?.qty || 1,
+      qty: prefill?.type === 'Barcode' || !prefill ? kindTotal : prefill.qty || 1,
+      breakdown: options.barcodeKinds.map((kind) => ({ type: kind, qty: kindCounts[kind] ?? 0 })),
       priority: prefill?.pri || 'normal',
       revisedFromId: revisedFromId || '',
     },
@@ -129,6 +141,18 @@ function NewRequestFormBody({ options }: { options: RequestFormOptions }) {
   const selectedCategory = watch('category') as CategoryType
   const selectedDistributor = watch('distributor')
   const selectedRequesterRole = watch('requesterRole')
+
+  const setKindCount = (kind: string, count: number) => {
+    const next = { ...kindCounts, [kind]: count }
+    setKindCounts(next)
+    setValue('breakdown', options.barcodeKinds.map((k) => ({ type: k, qty: next[k] ?? 0 })), { shouldValidate: isSubmitted })
+    setValue('qty', Object.values(next).reduce((sum, n) => sum + n, 0), { shouldValidate: isSubmitted })
+  }
+
+  // Switching (back) to Barcode: the quantity is the total of the Tipe Pengajuan counts again.
+  useEffect(() => {
+    if (selectedCategory === 'Barcode') setValue('qty', kindTotal)
+  }, [selectedCategory, kindTotal, setValue])
 
   const roleOptions = useMemo(
     () => options.requesterRoles[selectedCategory] ?? [],
@@ -247,12 +271,9 @@ function NewRequestFormBody({ options }: { options: RequestFormOptions }) {
                   render={({ field }) => (
                     <Segmented
                       size="large"
-                      options={['Barcode', 'Android', 'Server']}
+                      options={options.categories}
                       value={field.value}
-                      onChange={(val) => {
-                        field.onChange(val)
-                        setValue('outlet', '')
-                      }}
+                      onChange={field.onChange}
                       className="bg-slate-100 p-1"
                     />
                   )}
@@ -429,31 +450,64 @@ function NewRequestFormBody({ options }: { options: RequestFormOptions }) {
               </Field>
             </div>
 
-            {/* Quantity & Priority */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field name="qty">
+            {/* Barcode counts its units by reason (Tipe Pengajuan); the total is their sum */}
+            {selectedCategory === 'Barcode' && (
+              <Field name="breakdown">
                 <Form.Item
-                  label={<span className="font-semibold text-slate-700">Quantity (pcs)</span>}
+                  label={<span className="font-semibold text-slate-700">Tipe Pengajuan</span>}
                   required
-                  validateStatus={errors.qty ? 'error' : ''}
-                  help={errors.qty?.message}
+                  validateStatus={errors.breakdown ? 'error' : ''}
+                  help={errors.breakdown?.message ?? 'Isi jumlah per tipe; Total Request dihitung otomatis.'}
                 >
-                  <Controller
-                    name="qty"
-                    control={control}
-                    render={({ field }) => (
-                      <InputNumber
-                        size="large"
-                        min={1}
-                        className="w-full font-mono"
-                        placeholder="e.g. 5"
-                        value={field.value}
-                        onChange={(val) => field.onChange(val || 1)}
-                      />
-                    )}
-                  />
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {options.barcodeKinds.map((kind) => (
+                      <div key={kind}>
+                        <div className="text-xs text-slate-500 mb-1">{kindLabel(kind)}</div>
+                        <InputNumber
+                          size="large"
+                          min={0}
+                          precision={0}
+                          className="w-full font-mono"
+                          value={kindCounts[kind] ?? 0}
+                          onChange={(val) => setKindCount(kind, Math.max(0, Math.trunc(val ?? 0)))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-sm">
+                    Total Request: <b className="font-mono text-slate-900">{kindTotal}</b> pcs
+                  </div>
                 </Form.Item>
               </Field>
+            )}
+
+            {/* Quantity & Priority (Barcode has no separate quantity: its total comes from Tipe Pengajuan) */}
+            <div className={`grid grid-cols-1 gap-4 ${selectedCategory === 'Barcode' ? '' : 'sm:grid-cols-2'}`}>
+              {selectedCategory !== 'Barcode' ? (
+                <Field name="qty">
+                  <Form.Item
+                    label={<span className="font-semibold text-slate-700">Quantity (pcs)</span>}
+                    required
+                    validateStatus={errors.qty ? 'error' : ''}
+                    help={errors.qty?.message}
+                  >
+                    <Controller
+                      name="qty"
+                      control={control}
+                      render={({ field }) => (
+                        <InputNumber
+                          size="large"
+                          min={1}
+                          className="w-full font-mono"
+                          placeholder="e.g. 5"
+                          value={field.value}
+                          onChange={(val) => field.onChange(val || 1)}
+                        />
+                      )}
+                    />
+                  </Form.Item>
+                </Field>
+              ) : null}
 
               <Field name="priority">
                 <Form.Item label={<span className="font-semibold text-slate-700">Priority</span>}>

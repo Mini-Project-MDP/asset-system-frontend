@@ -1144,6 +1144,9 @@ a {
 .chart-plot .b.server {
   background: var(--warn);
 }
+.chart-plot .b.printer {
+  background: #6366f1;
+}
 .chart-xlabels {
   display: flex;
   gap: 8px;
