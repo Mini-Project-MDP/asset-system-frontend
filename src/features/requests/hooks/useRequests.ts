@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { requestService } from '../services/requestService'
 import type { RequestFilter, CreateRequestFormInput } from '../types'
 
@@ -6,6 +6,8 @@ export const useGetRequests = (filters: RequestFilter = {}) => {
   return useQuery({
     queryKey: ['requests', filters],
     queryFn: () => requestService.getRequests(filters),
+    // Keep the current rows on screen while a new search or filter loads.
+    placeholderData: keepPreviousData,
   })
 }
 

@@ -2,6 +2,9 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Input, Select, Button } from 'antd'
 import { SearchOutlined, PlusOutlined } from '@ant-design/icons'
+import { useAuth } from '@/shared/context/AuthContext'
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
+import { getApiErrorMessage } from '@/shared/utils/apiError'
 import { useGetRequests } from '../hooks/useRequests'
 import type { RequestDetailItem, ApprovalChainStep } from '../types'
 
@@ -11,8 +14,18 @@ export default function RequestsList() {
   const [typeFilter, setTypeFilter] = useState('All types')
   const [statusFilter, setStatusFilter] = useState('All status')
 
-  const { data: requests = [], isLoading } = useGetRequests({
-    q,
+  const { hasPermission } = useAuth()
+  // Search as the user types, but ask the server only once they pause.
+  const debouncedQ = useDebouncedValue(q.trim(), 300)
+
+  const {
+    data: requests = [],
+    isLoading,
+    isError,
+    error,
+    isFetching,
+  } = useGetRequests({
+    q: debouncedQ,
     type: typeFilter,
     status: statusFilter,
   })
@@ -62,17 +75,19 @@ export default function RequestsList() {
           <h1>Requests</h1>
           <p>Ajukan dan telusuri permintaan aset — barcode, smartphone, dan server.</p>
         </div>
-        <div className="actions">
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/requests/new')}
-            size="large"
-            className="!font-semibold shadow-md"
-          >
-            New request
-          </Button>
-        </div>
+        {hasPermission('request:create') && (
+          <div className="actions">
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => navigate('/requests/new')}
+              size="large"
+              className="!font-semibold shadow-md"
+            >
+              New request
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Card Table Container */}
@@ -119,13 +134,18 @@ export default function RequestsList() {
           <div className="empty">
             <b>Memuat data request...</b>
           </div>
+        ) : isError ? (
+          <div className="empty">
+            <b style={{ color: 'var(--stop)' }}>Gagal memuat request</b>
+            {getApiErrorMessage(error, 'Terjadi kesalahan saat memuat daftar request.')}
+          </div>
         ) : !requests.length ? (
           <div className="empty">
             <b>{isFiltered ? 'Tidak ada hasil' : 'Belum ada request'}</b>
             {isFiltered ? 'Coba ubah kata kunci atau filter.' : 'Ajukan request pertama untuk memulai.'}
           </div>
         ) : (
-          <table className="tbl">
+          <table className="tbl" style={isFetching ? { opacity: 0.6 } : undefined}>
             <thead>
               <tr>
                 <th>Request</th>
