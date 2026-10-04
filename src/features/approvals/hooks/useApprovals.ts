@@ -28,6 +28,7 @@ export function useActOnApproval() {
       queryClient.invalidateQueries({ queryKey: ['requests'] })
       queryClient.invalidateQueries({ queryKey: ['request', variables.requestId] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['navigation', 'badges'] })
     },
   })
 }

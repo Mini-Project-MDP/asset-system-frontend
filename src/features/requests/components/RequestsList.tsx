@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { Input, Select, Button } from 'antd'
 import { SearchOutlined, PlusOutlined } from '@ant-design/icons'
 import { useAuth } from '@/shared/context/AuthContext'
@@ -10,7 +10,19 @@ import type { RequestDetailItem, ApprovalChainStep } from '../types'
 
 export default function RequestsList() {
   const navigate = useNavigate()
-  const [q, setQ] = useState('')
+  // The search text lives in the URL (?q=), so the topbar search can open this page already filtered.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const q = searchParams.get('q') ?? ''
+  const setQ = (text: string) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (text) next.set('q', text)
+        else next.delete('q')
+        return next
+      },
+      { replace: true }
+    )
   const [typeFilter, setTypeFilter] = useState('All types')
   const [statusFilter, setStatusFilter] = useState('All status')
 

@@ -1,9 +1,13 @@
-import { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router'
 import { Input, Dropdown, Tag } from 'antd'
 import type { MenuProps } from 'antd'
 import { SearchOutlined, LogoutOutlined, UserOutlined, CrownOutlined, SettingOutlined } from '@ant-design/icons'
 import { useAuth } from '@/shared/context/AuthContext'
+import { useModuleAccess } from '@/shared/hooks/useModuleAccess'
+import { useNavigationBadges } from '@/shared/hooks/useNavigationBadges'
+import { buildBreadcrumb } from '@/shared/navigation/breadcrumb'
+import { findModule, type ModuleKey } from '@/shared/navigation/modules'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -12,83 +16,31 @@ interface MainLayoutProps {
 export default function MainLayout({ children }: MainLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout } = useAuth()
+  const { user, logout, isAuthenticated } = useAuth()
+  const { allowed, canOpen } = useModuleAccess()
+  const { data: badges } = useNavigationBadges(isAuthenticated)
 
+  const [searchText, setSearchText] = useState('')
+
+  // Only the light theme exists: the stylesheet has no dark palette yet.
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'light')
   }, [])
 
-  const modules = [
-    {
-      key: '/',
-      label: 'Dashboard',
-      icon: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <rect x="3" y="3" width="7" height="7" rx="1.5" />
-          <rect x="14" y="3" width="7" height="7" rx="1.5" />
-          <rect x="14" y="14" width="7" height="7" rx="1.5" />
-          <rect x="3" y="14" width="7" height="7" rx="1.5" />
-        </svg>
-      ),
-    },
-    {
-      key: '/requests',
-      label: 'Requests',
-      icon: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-        </svg>
-      ),
-    },
-    {
-      key: '/approvals',
-      label: 'Approvals',
-      badge: 3,
-      icon: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
-          <polyline points="22 4 12 14.01 9 11.01" />
-        </svg>
-      ),
-    },
-    {
-      key: '/fulfillment',
-      label: 'Fulfillment',
-      icon: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <rect x="1" y="3" width="15" height="13" rx="2" />
-          <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-          <circle cx="5.5" cy="18.5" r="2.5" />
-          <circle cx="18.5" cy="18.5" r="2.5" />
-        </svg>
-      ),
-    },
-    {
-      key: '/settings',
-      label: 'Settings',
-      icon: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
-        </svg>
-      ),
-    },
-  ]
+  const badgeFor = (key: ModuleKey): number | undefined => {
+    if (key === 'approvals') return badges?.approvals
+    if (key === 'fulfillment') return badges?.fulfillment
+    return undefined
+  }
 
-  const getCurrentPageTitle = () => {
-    switch (location.pathname) {
-      case '/requests':
-        return 'Requests'
-      case '/approvals':
-        return 'Approvals'
-      case '/fulfillment':
-        return 'Fulfillment'
-      case '/settings':
-        return 'Settings'
-      default:
-        return 'Dashboard'
-    }
+  const activeModule = findModule(location.pathname)
+  const crumbs = buildBreadcrumb(location.pathname, location.search)
+
+  // The search looks through requests, so it is offered to those who can open them.
+  const canSearch = canOpen('requests')
+  const submitSearch = (value: string) => {
+    const text = value.trim()
+    navigate(text ? `/requests?q=${encodeURIComponent(text)}` : '/requests')
   }
 
   const primaryRole = user?.roles?.[0]?.name || (user?.is_master ? 'Master Admin' : 'User')
@@ -112,13 +64,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </div>
       ),
     },
-    { type: 'divider' },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'Account & Settings',
-      onClick: () => navigate('/settings'),
-    },
+    ...(canOpen('settings')
+      ? [
+          { type: 'divider' as const },
+          {
+            key: 'settings',
+            icon: <SettingOutlined />,
+            label: 'Account & Settings',
+            onClick: () => navigate('/settings'),
+          },
+        ]
+      : []),
     { type: 'divider' },
     {
       key: 'logout',
@@ -143,16 +99,42 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
       {/* Topbar Header */}
       <header className="top">
-        <div className="crumb">
-          <b>{getCurrentPageTitle()}</b>
-        </div>
-        <div className="search">
-          <Input
-            placeholder="Search REQ-ID, outlet, barcode…"
-            prefix={<SearchOutlined style={{ color: 'var(--faint)' }} />}
-            allowClear
-          />
-        </div>
+        <nav className="crumb" aria-label="Breadcrumb">
+          {crumbs.map((crumb, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              )}
+              {crumb.to ? (
+                <a
+                  href={crumb.to}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    navigate(crumb.to as string)
+                  }}
+                >
+                  {crumb.label}
+                </a>
+              ) : (
+                <b>{crumb.label}</b>
+              )}
+            </React.Fragment>
+          ))}
+        </nav>
+        {canSearch && (
+          <div className="search">
+            <Input
+              placeholder="Search REQ-ID, outlet, barcode…"
+              prefix={<SearchOutlined style={{ color: 'var(--faint)' }} />}
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              onPressEnter={() => submitSearch(searchText)}
+            />
+          </div>
+        )}
 
         <div className="rolesw">
           <Dropdown menu={{ items: userMenuItems }} trigger={['click']} placement="bottomRight">
@@ -177,24 +159,24 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </div>
       </header>
 
-      {/* Sidebar Nav */}
+      {/* Sidebar Nav: only the modules this user may open */}
       <nav className="nav">
         <div className="lab eyebrow">Modules</div>
-        {modules.map((m) => {
-          const isActive = location.pathname === m.key
+        {allowed.map((m) => {
+          const badge = badgeFor(m.key)
           return (
             <a
               key={m.key}
-              href={m.key}
-              className={isActive ? 'active' : ''}
+              href={m.path}
+              className={activeModule?.key === m.key ? 'active' : ''}
               onClick={(e) => {
                 e.preventDefault()
-                navigate(m.key)
+                navigate(m.path)
               }}
             >
               {m.icon}
               <span>{m.label}</span>
-              {m.badge && <span className="badge">{m.badge}</span>}
+              {badge !== undefined && badge > 0 && <span className="badge">{badge}</span>}
             </a>
           )
         })}

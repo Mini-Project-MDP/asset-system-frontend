@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router'
+import { useAuth } from '@/shared/context/AuthContext'
 import SettingsOutlets from '@/features/settings/components/SettingsOutlets'
 import SettingsDistributors from '@/features/settings/components/SettingsDistributors'
 import SettingsTypes from '@/features/settings/components/SettingsTypes'
@@ -8,19 +9,27 @@ import type { SettingsTab } from '@/features/settings/types'
 
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const currentTab = (searchParams.get('tab') as SettingsTab) || 'outlets'
+  const { hasPermission } = useAuth()
+
+  // Each tab needs the permission its endpoints need: outlets and distributors are
+  // shared with the Asset Team, while asset types and users & roles are the
+  // Admin's. The approval flow is read-only information.
+  const tabs: { key: SettingsTab; label: string }[] = (
+    [
+      { key: 'outlets', label: 'Outlets', allowed: hasPermission('masterdata:manage') },
+      { key: 'distributors', label: 'Distributors', allowed: hasPermission('masterdata:manage') },
+      { key: 'types', label: 'Asset types', allowed: hasPermission('settings:manage') },
+      { key: 'flow', label: 'Approval flow', allowed: true },
+      { key: 'users', label: 'Users & roles', allowed: hasPermission('user:write') || hasPermission('role:manage') },
+    ] as const
+  ).filter((t) => t.allowed)
+
+  const requestedTab = searchParams.get('tab')
+  const currentTab: SettingsTab = tabs.find((t) => t.key === requestedTab)?.key ?? tabs[0].key
 
   const handleTabChange = (tabKey: SettingsTab) => {
     setSearchParams({ tab: tabKey })
   }
-
-  const tabs: { key: SettingsTab; label: string }[] = [
-    { key: 'outlets', label: 'Outlets' },
-    { key: 'distributors', label: 'Distributors' },
-    { key: 'types', label: 'Asset types' },
-    { key: 'flow', label: 'Approval flow' },
-    { key: 'users', label: 'Users & roles' },
-  ]
 
   const renderTabContent = () => {
     switch (currentTab) {
