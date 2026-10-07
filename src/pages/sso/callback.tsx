@@ -128,12 +128,23 @@ export const SSOCallbackPage: React.FC = () => {
               showIcon
               className="bg-red-950/50 border-red-800 text-red-200 text-xs rounded-xl"
             />
-            <button
-              onClick={() => navigate('/login')}
-              className="mt-6 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-xl hover:bg-blue-500"
-            >
-              Return to Login Page
-            </button>
+            <div className="mt-6 flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  localStorage.setItem('auth_mode', 'local')
+                  navigate('/login')
+                }}
+                className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold rounded-xl hover:from-blue-500 hover:to-indigo-500 cursor-pointer shadow-md shadow-blue-500/20"
+              >
+                🔑 Beralih ke Mode Auth Biasa (Bypass SSO)
+              </button>
+              <button
+                onClick={() => navigate('/login')}
+                className="w-full px-4 py-2 bg-slate-700/80 hover:bg-slate-750 text-slate-300 text-xs font-medium rounded-xl cursor-pointer"
+              >
+                Kembali ke Halaman Login
+              </button>
+            </div>
           </div>
         ) : (
           <div className="py-4 space-y-2">

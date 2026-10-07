@@ -25,7 +25,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return saved
   })
-  const [user, setUser] = useState<UserProfile | null>(null)
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    const savedUser = localStorage.getItem('user_profile')
+    if (savedUser) {
+      try {
+        return JSON.parse(savedUser)
+      } catch {
+        return null
+      }
+    }
+    return null
+  })
   const [isLoading, setIsLoading] = useState<boolean>(true)
 
   const fetchCurrentUser = async () => {
@@ -34,21 +44,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentToken === 'undefined') {
         localStorage.removeItem('access_token')
       }
+      localStorage.removeItem('user_profile')
       setToken(null)
       setUser(null)
       setIsLoading(false)
       return
     }
 
+    // Support offline / local demo token without forcing remote /api/v1/me
+    if (currentToken.startsWith('mock_') || currentToken.startsWith('local_')) {
+      const savedUser = localStorage.getItem('user_profile')
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser))
+          setIsLoading(false)
+          return
+        } catch {
+          // continue to remote check if parse failed
+        }
+      }
+    }
+
     try {
       const response = await httpClient.get<UserProfile>('/api/v1/me')
       const userData = (response.data as any)?.data || response.data
       setUser(userData)
+      localStorage.setItem('user_profile', JSON.stringify(userData))
     } catch (err) {
       console.error('Failed to fetch user profile:', err)
-      localStorage.removeItem('access_token')
-      setToken(null)
-      setUser(null)
+      // If we have a cached local/mock user, retain it so offline demos don't break
+      const savedUser = localStorage.getItem('user_profile')
+      if (savedUser && (currentToken.startsWith('mock_') || currentToken.startsWith('local_'))) {
+        try {
+          setUser(JSON.parse(savedUser))
+        } catch {
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('user_profile')
+          setToken(null)
+          setUser(null)
+        }
+      } else {
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('user_profile')
+        setToken(null)
+        setUser(null)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -61,12 +101,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = (newToken: string, newUser: UserProfile) => {
     if (!newToken || newToken === 'undefined') return
     localStorage.setItem('access_token', newToken)
+    localStorage.setItem('user_profile', JSON.stringify(newUser))
     setToken(newToken)
     setUser(newUser)
   }
 
   const logout = () => {
     localStorage.removeItem('access_token')
+    localStorage.removeItem('user_profile')
     setToken(null)
     setUser(null)
   }
