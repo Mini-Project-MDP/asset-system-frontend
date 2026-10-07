@@ -17,8 +17,6 @@ import {
   UserOutlined,
   LockOutlined,
   LoginOutlined,
-  GlobalOutlined,
-  KeyOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
 import { httpClient } from '@/shared/services/httpClient'
@@ -130,13 +128,6 @@ export const LoginForm: React.FC = () => {
     window.addEventListener('storage', handleStorageChange)
     return () => window.removeEventListener('storage', handleStorageChange)
   }, [])
-
-  const handleModeChange = (newMode: AuthMode) => {
-    setAuthMode(newMode)
-    localStorage.setItem('auth_mode', newMode)
-    setErrorMsg(null)
-    setInfoMsg(null)
-  }
 
   const handleSSOLoginRedirect = () => {
     const ssoServerUrl =
@@ -258,39 +249,6 @@ export const LoginForm: React.FC = () => {
           </Text>
         </div>
 
-        {/* Mode Switcher Banner */}
-        <div className="flex items-center justify-between p-1.5 mb-5 bg-slate-900/90 border border-slate-700/80 rounded-xl">
-          <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5 pl-2">
-            <span>Mode:</span>
-          </div>
-          <div className="flex gap-1">
-            <button
-              type="button"
-              onClick={() => handleModeChange('local')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-                authMode === 'local'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <KeyOutlined className="text-xs" />
-              Auth Biasa
-            </button>
-            <button
-              type="button"
-              onClick={() => handleModeChange('sso')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-                authMode === 'sso'
-                  ? 'bg-red-600 text-white shadow-md shadow-red-500/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <GlobalOutlined className="text-xs" />
-              Mayora SSO
-            </button>
-          </div>
-        </div>
-
         {errorMsg && (
           <Alert
             message={errorMsg}
@@ -318,15 +276,6 @@ export const LoginForm: React.FC = () => {
             ======================================================== */}
         {authMode === 'sso' && (
           <div className="space-y-4">
-            <div className="p-3 bg-red-950/30 border border-red-800/40 rounded-xl text-center">
-              <span className="text-xs text-red-300 font-medium flex items-center justify-center gap-1.5">
-                <GlobalOutlined /> Mode Mayora Single Sign-On Aktif
-              </span>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Autentikasi terpusat melalui Mayora Identity Provider (IdP)
-              </p>
-            </div>
-
             <Button
               type="primary"
               danger
@@ -338,15 +287,9 @@ export const LoginForm: React.FC = () => {
               Sign In with Mayora Single Sign-On (SSO)
             </Button>
 
-            <div className="text-center pt-2">
-              <button
-                type="button"
-                onClick={() => handleModeChange('local')}
-                className="text-xs text-slate-400 hover:text-blue-400 underline underline-offset-4 cursor-pointer transition-colors"
-              >
-                Mengalami kendala SSO? Beralih ke Mode Auth Biasa (Bypass)
-              </button>
-            </div>
+            <p className="text-center text-xs text-slate-400 mt-6">
+              Mayora Asset Management System · Powered by Mayora SSO
+            </p>
           </div>
         )}
 
@@ -403,7 +346,7 @@ export const LoginForm: React.FC = () => {
                   block
                   className="h-11 text-sm font-semibold rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 border-none shadow-lg shadow-blue-500/25 cursor-pointer"
                 >
-                  Sign In (Direct Auth)
+                  Sign In
                 </Button>
               </Form.Item>
             </Form>
@@ -430,22 +373,13 @@ export const LoginForm: React.FC = () => {
                   </Tooltip>
                 ))}
               </Space>
-              <p className="text-[10px] text-slate-500 mt-2">
-                Password default semua akun: <code className="text-slate-400">Password123!</code>
-              </p>
             </div>
+
+            <p className="text-center text-xs text-slate-400 mt-4!">
+              Mayora Asset Management System
+            </p>
           </div>
         )}
-
-        {/* Footer info & Localstorage activation clue */}
-        <div className="mt-5 pt-3 border-t border-slate-700/50 text-center">
-          <p className="text-[11px] text-slate-400">
-            Aktivasi via LocalStorage: <code className="text-amber-300">auth_mode = '{authMode}'</code>
-          </p>
-          <p className="text-[10px] text-slate-500 mt-0.5">
-            Ketik di console: <code className="text-slate-400">localStorage.setItem('auth_mode', 'sso')</code> atau <code className="text-slate-400">?mode=sso</code>
-          </p>
-        </div>
       </Card>
     </div>
   )
