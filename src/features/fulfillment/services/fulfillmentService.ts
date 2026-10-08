@@ -3,6 +3,11 @@ import type { RequestDetailItem } from '@/features/requests/types'
 import { FULFILL_STAGES } from '@/features/requests/services/requestService'
 import type { FulfillmentFilter, FulfillmentOverview, ImeiInfo, PhoneBrand } from '../types'
 
+// Saving and advancing write the stage and its history, then read the request back:
+// several database round trips, which can outlast the default 10s timeout. When the
+// browser gives up first, the server still applies the step.
+const FULFILLMENT_ACTION_TIMEOUT_MS = 30_000
+
 /**
  * Identifies a device from its IMEI. Resolves to null when the device is not in
  * the reference table (the form then falls back to manual input); rejects when
@@ -64,13 +69,16 @@ export const fulfillmentService = {
   saveFulfillmentData: async (id: string, fulfillData: unknown): Promise<RequestDetailItem> => {
     const response = await httpClient.post<RequestDetailItem>(
       `/api/v1/fulfillment/${id}/data`,
-      { fulfillData }
+      { fulfillData },
+      { timeout: FULFILLMENT_ACTION_TIMEOUT_MS }
     )
     return response.data
   },
 
   advanceStage: async (id: string): Promise<RequestDetailItem> => {
-    const response = await httpClient.post<RequestDetailItem>(`/api/v1/fulfillment/${id}/advance`)
+    const response = await httpClient.post<RequestDetailItem>(`/api/v1/fulfillment/${id}/advance`, undefined, {
+      timeout: FULFILLMENT_ACTION_TIMEOUT_MS,
+    })
     return response.data
   },
 }

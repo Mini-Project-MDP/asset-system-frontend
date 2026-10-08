@@ -28,6 +28,8 @@ export const CATEGORY_HIERARCHY: Record<CategoryType, string[]> = {
 
 export const FULFILL_STAGES = ['Processing', 'Shipped', 'Delivered']
 
+const CREATE_REQUEST_TIMEOUT_MS = 30_000
+
 export function computeChain(category: CategoryType, requesterRole: string): string[] {
   const levels = CATEGORY_HIERARCHY[category] || []
   const idx = levels.indexOf(requesterRole)
@@ -73,7 +75,12 @@ export const requestService = {
       revisedFromId: input.revisedFromId || undefined,
     }
 
-    const response = await httpClient.post<RequestDetailItem>('/api/v1/requests', payload)
+    // Creating a request also registers it with the Approval Engine (the backend allows
+    // that call up to 15s), so the default 10s timeout can give up on a request the
+    // server goes on to save, telling the user it failed.
+    const response = await httpClient.post<RequestDetailItem>('/api/v1/requests', payload, {
+      timeout: CREATE_REQUEST_TIMEOUT_MS,
+    })
     return response.data
   },
 }
